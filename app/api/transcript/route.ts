@@ -1,4 +1,4 @@
-// app/api/transcript/route.ts - SUPADATA + CACHING VERSION
+// app/api/transcript/route.ts - SIMPLIFIED SUPADATA VERSION
 // Replace your entire route.ts file with this code
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
@@ -37,26 +37,46 @@ export async function GET(request: NextRequest) {
     console.log('❌ No cached transcript, fetching from Supadata...');
 
     // 🔄 STEP 2: Fetch from Supadata API
-    const supadataResponse = await fetchFromSupadata(videoId);
+    const apiKey = process.env.SUPADATA_API_KEY;
+    
+    if (!apiKey) {
+      console.error('❌ SUPADATA_API_KEY not found in environment variables');
+      return NextResponse.json({ 
+        error: 'API configuration error',
+        suggestion: 'Please contact support'
+      }, { status: 500 });
+    }
+
+    // Try Arabic first
+    let supadataResponse = await callSupadataAPI(videoId, apiKey, 'ar');
+    
+    // If Arabic fails, try English
+    if (!supadataResponse.success) {
+      console.log('🔄 Arabic failed, trying English...');
+      supadataResponse = await callSupadataAPI(videoId, apiKey, 'en');
+    }
     
     if (supadataResponse.success) {
       console.log('✅ Supadata API success, caching transcript...');
       
-      // 💾 STEP 3: Save to cache
-      const { error: saveError } = await supabase
-        .from('transcripts')
-        .insert({
-          video_id: videoId,
-          transcript: supadataResponse.transcript,
-          lang: supadataResponse.lang,
-          created_at: new Date().toISOString()
-        });
+      // 💾 STEP 3: Save to cache (don't fail if this fails)
+      try {
+        const { error: saveError } = await supabase
+          .from('transcripts')
+          .insert({
+            video_id: videoId,
+            transcript: supadataResponse.transcript,
+            lang: supadataResponse.lang,
+            created_at: new Date().toISOString()
+          });
 
-      if (saveError) {
-        console.warn('⚠️ Failed to cache transcript:', saveError.message);
-        // Don't fail the whole request if caching fails
-      } else {
-        console.log('💾 Transcript cached successfully');
+        if (saveError) {
+          console.warn('⚠️ Failed to cache transcript:', saveError.message);
+        } else {
+          console.log('💾 Transcript cached successfully');
+        }
+      } catch (cacheError) {
+        console.warn('⚠️ Cache error (non-critical):', cacheError);
       }
 
       return NextResponse.json({ transcript: supadataResponse.transcript });
@@ -79,21 +99,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 🔄 Supadata API integration
-async function fetchFromSupadata(videoId: string) {
-  const apiKey = process.env.SUPADATA_API_KEY;
-  
-  if (!apiKey) {
-    console.error('❌ SUPADATA_API_KEY not found in environment variables');
-    return { success: false, error: 'API key not configured' };
-  }
-
+// Helper function to call Supadata API
+async function callSupadataAPI(videoId: string, apiKey: string, lang: string) {
   try {
-    console.log('📡 Calling Supadata API for video:', videoId);
+    console.log(`📡 Calling Supadata API for video: ${videoId}, lang: ${lang}`);
     
-    // Call Supadata API with structured format (text=false)
     const response = await fetch(
-      `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&text=false&lang=ar`,
+      `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&text=false&lang=${lang}`,
       {
         method: 'GET',
         headers: {
@@ -105,91 +117,38 @@ async function fetchFromSupadata(videoId: string) {
     );
 
     if (!response.ok) {
-      console.log('❌ Supadata API HTTP error:', response.status, response.statusText);
-      
-      // Try English as fallback
-      if (response.status === 404) {
-        console.log('🔄 Trying English fallback...');
-        return await fetchFromSupadataFallback(videoId, apiKey);
-      }
-      
+      console.log(`❌ Supadata API HTTP error for ${lang}:`, response.status, response.statusText);
       return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
     }
 
     const data = await response.json();
-    console.log('📊 Supadata response structure:', {
+    console.log('📊 Supadata response:', {
       hasContent: !!data.content,
       contentType: Array.isArray(data.content) ? 'array' : typeof data.content,
       lang: data.lang,
-      availableLangs: data.availableLangs
+      segmentCount: Array.isArray(data.content) ? data.content.length : 0
     });
 
-    if (data.content && Array.isArray(data.content)) {
+    if (data.content && Array.isArray(data.content) && data.content.length > 0) {
       // Convert Supadata format to your app's format
       const transcript = data.content.map((segment: any) => ({
-        text: segment.text,
-        start: segment.offset / 1000, // Convert milliseconds to seconds
-        duration: segment.duration / 1000 // Convert milliseconds to seconds
+        text: segment.text || '',
+        start: (segment.offset || 0) / 1000, // Convert milliseconds to seconds
+        duration: (segment.duration || 2000) / 1000 // Convert milliseconds to seconds
       }));
 
       return {
         success: true,
         transcript,
-        lang: data.lang
+        lang: data.lang || lang
       };
     } else {
-      console.log('❌ Invalid response format from Supadata');
-      return { success: false, error: 'Invalid response format' };
-    }
-
-  } catch (error: any) {
-    console.error('❌ Supadata API error:', error.message);
-    return { success: false, error: error.message };
-  }
-}
-
-// Fallback function to try English if Arabic fails
-async function fetchFromSupadataFallback(videoId: string, apiKey: string) {
-  try {
-    console.log('🔄 Supadata fallback: trying English...');
-    
-    const response = await fetch(
-      `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&text=false&lang=en`,
-      {
-        method: 'GET',
-        headers: {
-          'x-api-key': apiKey,
-          'Content-Type': 'application/json'
-        },
-        signal: AbortSignal.timeout(15000)
-      }
-    );
-
-    if (!response.ok) {
-      console.log('❌ English fallback also failed:', response.status);
-      return { success: false, error: `No transcripts available in Arabic or English` };
-    }
-
-    const data = await response.json();
-    
-    if (data.content && Array.isArray(data.content)) {
-      const transcript = data.content.map((segment: any) => ({
-        text: segment.text,
-        start: segment.offset / 1000,
-        duration: segment.duration / 1000
-      }));
-
-      return {
-        success: true,
-        transcript,
-        lang: data.lang
-      };
-    } else {
+      console.log(`❌ No valid content from Supadata for ${lang}`);
       return { success: false, error: 'No valid transcript data' };
     }
 
   } catch (error: any) {
-    console.error('❌ Supadata fallback error:', error.message);
+    console.error(`❌ Supadata API error for ${lang}:`, error.message);
     return { success: false, error: error.message };
   }
 }
