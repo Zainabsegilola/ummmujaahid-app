@@ -126,3 +126,11 @@ def internal_error(error):
 if __name__ == '__main__':
     logger.info("Starting Flask transcript service...")
     app.run(debug=True, port=5000, host='127.0.0.1')
+
+def get_transcript(video_id):
+    logger.info(f"Received request for video_id: {video_id}")
+    
+    # Add delay to avoid rate limiting
+    time.sleep(3)  # Wait 3 seconds
+    
+    # ... rest of your code
