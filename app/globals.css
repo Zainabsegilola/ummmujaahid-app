@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animations */
+@keyframes blink {
+  0%, 50% { border-color: #8b5cf6; }
+  51%, 100% { border-color: transparent; }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-pulse {
+  animation: blink 1s infinite;
+}
+
+.animate-bounce {
+  animation: bounce 2s infinite;
+}
+
+/* Custom spacing */
+.padding-4rem-0-6rem {
+  padding: 4rem 0 6rem;
+}
+
+/* 3D book effect */
+.perspective-600 {
+  perspective: 600px;
+}
+
+.hover\:rotate-y-0:hover {
+  transform: rotateY(0deg);
+}
+
+/* Purple color fix */
+.text-purple-600 {
+  color: #8b5cf6 !important;
+}
+
+.bg-purple-600 {
+  background-color: #8b5cf6 !important;
+}
+
+.border-purple-600 {
+  border-color: #8b5cf6 !important;
+}
+
+.focus\:border-purple-600:focus {
+  border-color: #8b5cf6 !important;
+}
+
+.focus\:ring-purple-200:focus {
+  ring-color: #ddd6fe !important;
+}
