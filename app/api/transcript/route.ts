@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     console.log(`Attempting to fetch transcript for video: ${videoId}`);
     
-    const response = await fetch(`http://127.0.0.1:5000/transcript/${videoId}`, {
+    const response = await fetch(`https://ummmujaahid-transcript-api.onrender.com/${videoId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
