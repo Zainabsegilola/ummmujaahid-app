@@ -775,72 +775,9 @@ function MainApp({ user }: { user: any }) {
     }
   };
 
-  // Stop current audio
-  const stopAudio = () => {
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-        setCurrentPlayingVerse(null);
-        setIsPlayingContinuous(false);
-        setAudioQueue([]);
-        setCurrentAudioIndex(0);
-    }
+  
   };
 
-  // Unlock audio (user must click once to enable all audio)
-  const unlockAudio = async () => {
-    try {
-      // Create a silent audio to unlock the audio context
-      const silentAudio = new Audio();
-      silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCjiH0fPTgjMGI2+25KZ';
-      await silentAudio.play();
-      setAudioUnlocked(true);
-      setQuranMessage('🔊 Audio enabled! You can now play verses.');
-      setTimeout(() => setQuranMessage(''), 2000);
-    } catch (error) {
-      console.log('Audio unlock failed, but continuing...');
-      setAudioUnlocked(true); // Set anyway
-    }
-  };
-
-  // Main play function - supports single verse, range, or full surah
-  const playVerseAudio = async (mode = 'single', verseNumber = null, startVerse = 1, endVerse = null) => {
-    if (!audioUnlocked) {
-        await unlockAudio();
-        setTimeout(() => playVerseAudio(mode, verseNumber, startVerse, endVerse), 100);
-        return;
-    }
-
-    try {
-        stopAudio(); // Stop any current audio
-
-        let audioUrls = [];
-        
-        if (mode === 'single') {
-        // Play single verse
-        const verse = currentVerses.find(v => v.verse_number === verseNumber);
-        if (!verse) {
-            setQuranMessage('❌ Verse not found');
-            return;
-        }
-        
-        audioUrls = [{
-            verse_number: verse.verse_number,
-            audio_url: getVerseAudioUrl(verse.global_ayah_number, 'ar.alafasy', 128),
-            global_ayah_number: verse.global_ayah_number
-        }];
-        
-        } else if (mode === 'range') {
-        // Play range of verses
-        const versesInRange = currentVerses.filter(v => 
-            v.verse_number >= startVerse && v.verse_number <= (endVerse || startVerse)
-        );
-        
-        audioUrls = getVerseRangeAudioUrls(versesInRange, 'ar.alafasy', 128);
-        
-        } else if (mode === 'full') {
-        // Play full surah
-        audioUrls = getVerseRangeAudioUrls(currentVerses, 'ar.alafasy', 128);
         }
 
         if (audioUrls.length === 0) {
