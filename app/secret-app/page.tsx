@@ -4518,11 +4518,9 @@ function MainApp({ user }: { user: any }) {
                     [Verse {verse.verse_number} - text unavailable]
                     </span>
                 )}
-                </span>
-
-                {/* Verse Number in Circle (Traditional Style) */}
+                                {/* Verse Number in Circle (Traditional Style) */}
                 <span
-                style={{
+                  style={{
                     display: 'inline-block',
                     width: '32px',
                     height: '32px',
@@ -4537,22 +4535,56 @@ function MainApp({ user }: { user: any }) {
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     border: '2px solid ' + (currentPlayingVerse === verse.verse_number ? '#8b5cf6' : '#e5e7eb')
-                }}
-                onClick={() => playVerseAudio('single', verse.verse_number)}
-                onMouseEnter={(e) => {
+                  }}
+                  onClick={() => playVerseAudio('single', verse.verse_number)}
+                  onMouseEnter={(e) => {
                     if (currentPlayingVerse !== verse.verse_number) {
-                    e.currentTarget.style.backgroundColor = '#e5e7eb';
+                      e.currentTarget.style.backgroundColor = '#e5e7eb';
                     }
-                }}
-                onMouseLeave={(e) => {
+                  }}
+                  onMouseLeave={(e) => {
                     if (currentPlayingVerse !== verse.verse_number) {
-                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                      e.currentTarget.style.backgroundColor = '#f3f4f6';
                     }
-                }}
-                title={`Click to play verse ${verse.verse_number}`}
+                  }}
+                  title={`Click to play verse ${verse.verse_number}`}
                 >
-                {verse.verse_number}
+                  {verse.verse_number}
                 </span>
+                
+                {/* Translation below verse (if enabled) */}
+                {quranSettings.show_translation && (
+                  <div style={{
+                    display: 'block',
+                    width: '100%',
+                    fontSize: '16px',
+                    color: '#374151',
+                    fontStyle: 'italic',
+                    lineHeight: '1.6',
+                    textAlign: 'left',
+                    direction: 'ltr',
+                    margin: '12px 0 20px 0',
+                    padding: '12px 16px',
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #d1fae5',
+                    borderRadius: '6px'
+                  }}>
+                    <span style={{ 
+                      fontSize: '11px', 
+                      fontWeight: '600', 
+                      color: '#059669',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      Verse {verse.verse_number}:
+                    </span>
+                    <br />
+                    {verse.text_translation || 'Translation loading...'}
+                  </div>
+                )}
+
+{/* Add space between verses */}
+{index < currentVerses.length - 1 && <span> </span>}
 
                 {/* Add space between verses */}
                 {index < currentVerses.length - 1 && <span> </span>}
