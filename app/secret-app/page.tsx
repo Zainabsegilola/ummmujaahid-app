@@ -441,18 +441,7 @@ function MainApp({ user }: { user: any }) {
   });
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
-  const [quranDeck, setQuranDeck] = useState<any>(null);
-  const [isLoadingQuran, setIsLoadingQuran] = useState(false);
-  const [quranMessage, setQuranMessage] = useState('');
-  const [readSubTab, setReadSubTab] = useState('quran'); // New state for sub-tabs
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
-  const [quranViewMode, setQuranViewMode] = useState('full'); // 'single' or 'full'
-  const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
-  const [playMode, setPlayMode] = useState('single'); // 'single', 'range', 'full'
-  const [playRange, setPlayRange] = useState({ start: 1, end: 1 });
-  const [isPlayingContinuous, setIsPlayingContinuous] = useState(false);
-  const [audioQueue, setAudioQueue] = useState([]);
-  const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
   // community states
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
@@ -775,156 +764,62 @@ function MainApp({ user }: { user: any }) {
       setIsLoadingQuran(false);
     }
   };
-  // Stop current audio
-  const stopAudio = () => {
-    if (currentAudio) {
+  // Simple audio function - click verse number to play
+  const playVerseAudio = async (verseNumber: number, globalAyahNumber: number) => {
+    try {
+      // Stop any currently playing audio
+      if (currentAudio) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
         setCurrentPlayingVerse(null);
-        setIsPlayingContinuous(false);
-        setAudioQueue([]);
-        setCurrentAudioIndex(0);
-    }
-  };
-
-  // Unlock audio (user must click once to enable all audio)
-  const unlockAudio = async () => {
-    try {
-      // Create a silent audio to unlock the audio context
-      const silentAudio = new Audio();
-      silentAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmgfCjiH0fPTgjMGI2+25KZ';
-      await silentAudio.play();
-      setAudioUnlocked(true);
-      setQuranMessage('🔊 Audio enabled! You can now play verses.');
-      setTimeout(() => setQuranMessage(''), 2000);
-    } catch (error) {
-      console.log('Audio unlock failed, but continuing...');
-      setAudioUnlocked(true); // Set anyway
-    }
-  };
-
-  // Main play function - supports single verse, range, or full surah
-  const playVerseAudio = async (mode = 'single', verseNumber = null, startVerse = 1, endVerse = null) => {
-    if (!audioUnlocked) {
-        await unlockAudio();
-        setTimeout(() => playVerseAudio(mode, verseNumber, startVerse, endVerse), 100);
-        return;
-    }
-
-    try {
-        stopAudio(); // Stop any current audio
-
-        let audioUrls = [];
-        
-        if (mode === 'single') {
-        // Play single verse
-        const verse = currentVerses.find(v => v.verse_number === verseNumber);
-        if (!verse) {
-            setQuranMessage('❌ Verse not found');
-            return;
-        }
-        
-        audioUrls = [{
-            verse_number: verse.verse_number,
-            audio_url: getVerseAudioUrl(verse.global_ayah_number, 'ar.alafasy', 128),
-            global_ayah_number: verse.global_ayah_number
-        }];
-        
-        } else if (mode === 'range') {
-        // Play range of verses
-        const versesInRange = currentVerses.filter(v => 
-            v.verse_number >= startVerse && v.verse_number <= (endVerse || startVerse)
-        );
-        
-        audioUrls = getVerseRangeAudioUrls(versesInRange, 'ar.alafasy', 128);
-        
-        } else if (mode === 'full') {
-        // Play full surah
-        audioUrls = getVerseRangeAudioUrls(currentVerses, 'ar.alafasy', 128);
-        }
-
-        if (audioUrls.length === 0) {
-        setQuranMessage('❌ No audio to play');
-        return;
-        }
-
-        setAudioQueue(audioUrls);
-        setCurrentAudioIndex(0);
-        setIsPlayingContinuous(audioUrls.length > 1);
-        
-        await playAudioFromQueue(audioUrls, 0);
-        
-    } catch (error) {
-        console.error('Audio playback failed:', error);
-        setQuranMessage('❌ Audio failed to load');
-        setTimeout(() => setQuranMessage(''), 3000);
-    }
-    };
-   // Play audio from queue (for continuous playback)
-  const playAudioFromQueue = async (queue, index) => {
-    if (index >= queue.length) {
-        setIsPlayingContinuous(false);
+      }
+  
+      setIsLoadingAudio(true);
+      setQuranMessage(`🔄 Loading verse ${verseNumber}...`);
+  
+      // Create and setup audio
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.src = `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${globalAyahNumber}.mp3`;
+      
+      audio.oncanplaythrough = () => {
+        setQuranMessage(`🔊 Playing verse ${verseNumber}`);
+      };
+      
+      audio.onended = () => {
         setCurrentPlayingVerse(null);
-        setQuranMessage('🎵 Playback complete');
-        setTimeout(() => setQuranMessage(''), 2000);
-        return;
-    }
-
-    const currentAudioData = queue[index];
-    setCurrentPlayingVerse(currentAudioData.verse_number);
-    setQuranMessage(`🔊 Playing verse ${currentAudioData.verse_number}...`);
-
-    try {
-        const audio = new Audio();
-        audio.crossOrigin = 'anonymous';
-        audio.preload = 'auto';
-        
-        audio.oncanplay = () => {
-        setQuranMessage(`🔊 Playing verse ${currentAudioData.verse_number}`);
-        };
-        
-        audio.onended = () => {
-        if (isPlayingContinuous && index < queue.length - 1) {
-            // Auto-play next verse after 1 second pause
-            setTimeout(() => {
-            setCurrentAudioIndex(index + 1);
-            playAudioFromQueue(queue, index + 1);
-            }, 1000);
-        } else {
-            setCurrentPlayingVerse(null);
-            setIsPlayingContinuous(false);
-            setQuranMessage('');
-        }
-        };
-        
-        audio.onerror = () => {
-        console.error('Audio failed:', currentAudioData.audio_url);
-        setQuranMessage(`❌ Verse ${currentAudioData.verse_number} audio failed`);
-        
-        // Try next verse if in continuous mode
-        if (isPlayingContinuous && index < queue.length - 1) {
-            setTimeout(() => playAudioFromQueue(queue, index + 1), 1000);
-        } else {
-            setCurrentPlayingVerse(null);
-            setIsPlayingContinuous(false);
-        }
-        };
-        
-        audio.src = currentAudioData.audio_url;
-        setCurrentAudio(audio);
-        
-        console.log('🎵 Playing:', currentAudioData.audio_url);
-        await audio.play();
-        
+        setCurrentAudio(null);
+        setQuranMessage('');
+      };
+      
+      audio.onerror = () => {
+        setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
+        setCurrentPlayingVerse(null);
+        setTimeout(() => setQuranMessage(''), 3000);
+      };
+  
+      setCurrentAudio(audio);
+      setCurrentPlayingVerse(verseNumber);
+      await audio.play();
+  
     } catch (error) {
-        console.error('Failed to play audio:', error);
-        setQuranMessage(`❌ Verse ${currentAudioData.verse_number} failed`);
-        
-        if (isPlayingContinuous && index < queue.length - 1) {
-        setTimeout(() => playAudioFromQueue(queue, index + 1), 1000);
-        }
+      console.error('Audio playback failed:', error);
+      setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
+      setCurrentPlayingVerse(null);
+    } finally {
+      setIsLoadingAudio(false);
     }
-    };
+  };
+  
+  const stopAudio = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+    }
+    setCurrentPlayingVerse(null);
+    setQuranMessage('');
+  };
     // Navigation functions for single verse mode
   const goToNextVerse = () => {
     if (currentVerseIndex < currentVerses.length - 1) {
