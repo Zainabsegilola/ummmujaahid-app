@@ -774,9 +774,11 @@ function MainApp({ user }: { user: any }) {
       setIsLoadingQuran(false);
     }
   };
-  // Simple audio function - click verse number to play
-  const playVerseAudio = async (verseNumber: number, globalAyahNumber: number) => {
+    // Simple audio function - click verse number to play
+    const playVerseAudio = async (verseNumber: number, globalAyahNumber: number) => {
     try {
+      console.log('🎵 Playing verse:', verseNumber, 'Global ayah:', globalAyahNumber);
+      
       // Stop any currently playing audio
       if (currentAudio) {
         currentAudio.pause();
@@ -784,15 +786,32 @@ function MainApp({ user }: { user: any }) {
         setCurrentPlayingVerse(null);
       }
   
+      if (!globalAyahNumber) {
+        setQuranMessage(`❌ Missing audio data for verse ${verseNumber}`);
+        setTimeout(() => setQuranMessage(''), 3000);
+        return;
+      }
+  
       setIsLoadingAudio(true);
       setQuranMessage(`🔄 Loading verse ${verseNumber}...`);
   
-      // Create and setup audio
-      const audio = new Audio();
-      audio.crossOrigin = 'anonymous';
-      audio.src = `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${globalAyahNumber}.mp3`;
+      // Use EveryAyah.com - no CORS restrictions
+      const paddedNumber = String(globalAyahNumber).padStart(6, '0');
+      const audioUrl = `https://everyayah.com/data/Alafasy_128kbps/${paddedNumber}.mp3`;
       
-      audio.oncanplaythrough = () => {
+      console.log('🎵 Audio URL:', audioUrl);
+  
+      const audio = new Audio();
+      
+      // Don't set crossOrigin for EveryAyah (avoids CORS)
+      audio.preload = 'auto';
+      
+      // Setup event handlers
+      audio.onloadstart = () => {
+        console.log('🔄 Audio loading started');
+      };
+      
+      audio.oncanplay = () => {
         setQuranMessage(`🔊 Playing verse ${verseNumber}`);
       };
       
@@ -802,14 +821,17 @@ function MainApp({ user }: { user: any }) {
         setQuranMessage('');
       };
       
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.error('❌ Audio error:', e);
         setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
         setCurrentPlayingVerse(null);
         setTimeout(() => setQuranMessage(''), 3000);
       };
   
+      audio.src = audioUrl;
       setCurrentAudio(audio);
       setCurrentPlayingVerse(verseNumber);
+      
       await audio.play();
   
     } catch (error) {
@@ -820,7 +842,6 @@ function MainApp({ user }: { user: any }) {
       setIsLoadingAudio(false);
     }
   };
-  
   const stopAudio = () => {
     if (currentAudio) {
       currentAudio.pause();
