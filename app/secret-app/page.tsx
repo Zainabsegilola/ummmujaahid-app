@@ -794,76 +794,78 @@ function MainApp({ user }: { user: any }) {
       setIsLoadingAudio(true);
       setQuranMessage(`🔄 Loading verse ${verseNumber}...`);
   
-      // Try multiple audio sources
-      const audioSources = [
-        // Source 1: EveryAyah with 6-digit padding
-        `https://everyayah.com/data/Alafasy_128kbps/${String(globalAyahNumber).padStart(6, '0')}.mp3`,
-        
-        // Source 2: EveryAyah with 3-digit padding  
-        `https://everyayah.com/data/Alafasy_128kbps/${String(globalAyahNumber).padStart(3, '0')}.mp3`,
-        
-        // Source 3: Different reciter
-        `https://everyayah.com/data/AbdurRahman_As-Sudais_192kbps/${String(globalAyahNumber).padStart(6, '0')}.mp3`,
-        
-        // Source 4: Quran Central 
-        `https://audio.qurancentral.com/alafasy/${globalAyahNumber}.mp3`,
-        
-        // Source 5: Simple format
-        `https://everyayah.com/data/Alafasy_128kbps/${globalAyahNumber}.mp3`
-      ];
-  
-      for (let i = 0; i < audioSources.length; i++) {
-        try {
-          const audioUrl = audioSources[i];
-          console.log(`🔄 Trying source ${i + 1}: ${audioUrl}`);
-          
-          const audio = new Audio();
-          audio.preload = 'auto';
-          
-          // Test if audio loads
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject('Timeout'), 5000);
-            
-            audio.oncanplaythrough = () => {
-              clearTimeout(timeout);
-              resolve(true);
-            };
-            
-            audio.onerror = () => {
-              clearTimeout(timeout);
-              reject('Load failed');
-            };
-            
-            audio.src = audioUrl;
-          });
-          
-          // Success! Setup and play
-          audio.onended = () => {
-            setCurrentPlayingVerse(null);
-            setCurrentAudio(null);
-            setQuranMessage('');
-          };
-          
-          setCurrentAudio(audio);
-          setCurrentPlayingVerse(verseNumber);
-          setQuranMessage(`🔊 Playing verse ${verseNumber}`);
-          
-          await audio.play();
-          console.log(`✅ Audio playing from source ${i + 1}`);
-          return; // Exit function on success
-          
-        } catch (error) {
-          console.log(`❌ Source ${i + 1} failed:`, error);
-          continue; // Try next source
-        }
-      }
+      // Get audio URL from Al-Quran Cloud API
+      const response = await fetch(`https://api.alquran.cloud/v1/ayah/${globalAyahNumber}/ar.alafasy`);
+      const data = await response.json();
       
-      // If we get here, all sources failed
-      throw new Error('All audio sources failed');
+      console.log('🎵 Audio API Response:', data);
+  
+      if (data.code === 200 && data.data) {
+        // Try audio URLs in order of preference
+        const audioUrls = [
+          data.data.audio, // Primary audio URL
+          ...(data.data.audioSecondary || []) // Secondary URLs as backup
+        ].filter(Boolean); // Remove any null/undefined URLs
+  
+        if (audioUrls.length === 0) {
+          throw new Error('No audio URLs available');
+        }
+  
+        // Try each URL until one works
+        for (let i = 0; i < audioUrls.length; i++) {
+          try {
+            const audioUrl = audioUrls[i];
+            console.log(`🔄 Trying audio URL ${i + 1}: ${audioUrl}`);
+            
+            const audio = new Audio();
+            audio.preload = 'auto';
+            
+            // Test audio loading
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject('Timeout'), 8000);
+              
+              audio.oncanplaythrough = () => {
+                clearTimeout(timeout);
+                resolve(true);
+              };
+              
+              audio.onerror = () => {
+                clearTimeout(timeout);
+                reject('Load failed');
+              };
+              
+              audio.src = audioUrl;
+            });
+            
+            // Success! Setup and play
+            audio.onended = () => {
+              setCurrentPlayingVerse(null);
+              setCurrentAudio(null);
+              setQuranMessage('');
+            };
+            
+            setCurrentAudio(audio);
+            setCurrentPlayingVerse(verseNumber);
+            setQuranMessage(`🔊 Playing verse ${verseNumber}`);
+            
+            await audio.play();
+            console.log(`✅ Audio playing from URL ${i + 1}`);
+            return; // Exit on success
+            
+          } catch (error) {
+            console.log(`❌ Audio URL ${i + 1} failed:`, error);
+            continue; // Try next URL
+          }
+        }
+        
+        throw new Error('All audio URLs failed');
+      } else {
+        throw new Error('API returned no audio data');
+      }
   
     } catch (error) {
       console.error('Audio playback failed:', error);
-      setQuranMessage(`❌ Audio failed for verse ${verseNumber} - trying different sources...`);
+      setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
       setCurrentPlayingVerse(null);
     } finally {
       setIsLoadingAudio(false);
