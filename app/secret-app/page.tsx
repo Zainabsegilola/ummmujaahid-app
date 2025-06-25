@@ -3986,6 +3986,21 @@ function MainApp({ user }: { user: any }) {
             >
                 Full Surah
             </button>
+              {/* Translation Toggle */}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+                <input
+                  type="checkbox"
+                  checked={quranSettings.show_translation}
+                  onChange={(e) => setQuranSettings(prev => ({ 
+                    ...prev, 
+                    show_translation: e.target.checked 
+                  }))}
+                  style={{ marginRight: '6px' }}
+                />
+                Show Translation
+              </label>
+            </div>
             </div>
 
             {/* Range inputs for range mode */}
@@ -4294,19 +4309,30 @@ function MainApp({ user }: { user: any }) {
           )}
         </div>
 
-        {/* Translation Placeholder */}
+        {/* Muhsin Khan Translation */}
         {quranSettings.show_translation && (
           <div style={{ 
             fontSize: '16px', 
-            color: '#6b7280', 
-            fontStyle: 'italic',
-            textAlign: 'center',
+            color: '#374151', 
+            lineHeight: '1.6',
+            textAlign: 'left',
             padding: '20px',
-            backgroundColor: '#f8f9fa',
+            backgroundColor: '#f0fdf4',
+            border: '2px solid #d1fae5',
             borderRadius: '8px',
             marginBottom: '20px'
           }}>
-            Translation will be added in next update
+            <div style={{ 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: '#059669', 
+              marginBottom: '8px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              📖 Muhsin Khan Translation
+            </div>
+            {currentVerse.text_translation || 'Translation loading...'}
           </div>
         )}
 
