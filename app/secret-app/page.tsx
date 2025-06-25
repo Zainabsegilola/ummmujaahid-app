@@ -441,6 +441,9 @@ function MainApp({ user }: { user: any }) {
   const [currentSurah, setCurrentSurah] = useState<any>(null);
   const [currentVerses, setCurrentVerses] = useState<any[]>([]);
   const [selectedSurahNumber, setSelectedSurahNumber] = useState(1);
+  const [playMode, setPlayMode] = useState('single'); // 'single', 'range', 'full'
+  const [playRange, setPlayRange] = useState({ start: 1, end: 1 });
+  const [isPlayingContinuous, setIsPlayingContinuous] = useState(false);
   const [quranSettings, setQuranSettings] = useState<any>({
     preferred_reciter_id: 3,
     show_translation: false,
