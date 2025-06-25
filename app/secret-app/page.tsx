@@ -31,10 +31,10 @@ import {
 import { 
   fetchSurahsList, 
   fetchSurahVerses, 
-  getVerseAudioUrl,
-  getVerseRangeAudioUrls,
-  fetchSurahAudio,
-  RECITERS 
+  loadVerseAudioWithFallback,
+  generateRangeAudioData,
+  RECITERS,
+  getReciterFallbackChain
 } from '@/lib/quran-api'
 declare global {
   interface Window {
@@ -428,8 +428,10 @@ function MainApp({ user }: { user: any }) {
   // Harakat states
   const [harakatCache, setHarakatCache] = useState<Map<string, string>>(new Map());
   const [isProcessingHarakat, setIsProcessingHarakat] = useState(false);
-
-
+  //translation states
+  const [showTranslations, setShowTranslations] = useState(false);
+  const [currentReciter, setCurrentReciter] = useState('alafasy');
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
   // Quran states
   const [surahs, setSurahs] = useState<any[]>([]);
   const [currentSurah, setCurrentSurah] = useState<any>(null);
@@ -736,41 +738,46 @@ function MainApp({ user }: { user: any }) {
     }
   };
 
-  // Updated loadSurahVerses function
-  const loadSurahVerses = async (surahNumber) => {
-  setIsLoadingQuran(true);
-  try {
-    // Get current reciter setting
-    const currentReciter = Object.values(RECITERS).find(r => r.id === 'ar.alafasy') || RECITERS.alafasy;
+   const loadSurahVerses = async (surahNumber) => {
+    setIsLoadingQuran(true);
+    setQuranMessage('🔄 Loading verses and translations...');
     
-    const { data, error } = await fetchSurahVerses(surahNumber, currentReciter.id);
-    if (!error && data) {
-      setCurrentVerses(data);
-      setCurrentVerseIndex(0); // Reset to first verse
+    // Reset play range when changing surahs
+    setPlayRange({ start: 1, end: 1 });
+    
+    try {
+      // Load verses WITH translations immediately
+      const { data, error } = await fetchSurahVerses(surahNumber, true);
       
-      const surah = surahs.find(s => s.number === surahNumber);
-      setCurrentSurah(surah);
-      
-      // Create or get deck for this surah
-      if (user?.id && surah) {
-        const { data: deck } = await createSurahDeck(surah.name_english, surahNumber, user.id);
-        setQuranDeck(deck);
+      if (!error && data && data.length > 0) {
+        setCurrentVerses(data);
+        
+        // Set play range to full surah by default
+        setPlayRange({ start: 1, end: data.length });
+        
+        const surah = surahs.find(s => s.number === surahNumber);
+        setCurrentSurah(surah);
+        
+        // Create or get deck for this surah
+        if (user?.id && surah) {
+          const { data: deck } = await createSurahDeck(surah.name_english, surahNumber, user.id);
+          setQuranDeck(deck);
+        }
+        
+        setQuranMessage(`✅ Loaded ${data.length} verses with translations`);
+        setTimeout(() => setQuranMessage(''), 3000);
+      } else {
+        setQuranMessage(`❌ Failed to load verses: ${error}`);
+        setTimeout(() => setQuranMessage(''), 5000);
       }
-      
-      setQuranMessage(`✅ Loaded ${data.length} verses`);
-      setTimeout(() => setQuranMessage(''), 2000);
-    } else {
-      setQuranMessage(`❌ Failed to load verses: ${error}`);
+    } catch (error) {
+      console.error('Error loading verses:', error);
+      setQuranMessage(`❌ Error: ${error.message}`);
+      setTimeout(() => setQuranMessage(''), 5000);
+    } finally {
+      setIsLoadingQuran(false);
     }
-  } catch (error) {
-    console.error('Error loading verses:', error);
-    setQuranMessage(`❌ Error: ${error.message}`);
-  } finally {
-    setIsLoadingQuran(false);
-    setTimeout(() => setQuranMessage(''), 3000);
-  }
   };
-
   // Stop current audio
   const stopAudio = () => {
     if (currentAudio) {
