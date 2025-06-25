@@ -372,8 +372,7 @@ function ProfileDropdown({ user, onLogout }) {
 // Main App Component
 function MainApp({ user }: { user: any }) {
   const [activeTab, setActiveTab] = useState('watch');
-  const [readSubTab, setReadSubTab] = useState('quran');
-  const [quranDeck, setQuranDeck] = useState<any>(null);
+  
   
   // Video states
   const [player, setPlayer] = useState<any>(null);
@@ -433,6 +432,12 @@ function MainApp({ user }: { user: any }) {
   
   // Quran states
   const [surahs, setSurahs] = useState<any[]>([]);
+  const [quranDeck, setQuranDeck] = useState<any>(null);
+  const [isLoadingQuran, setIsLoadingQuran] = useState(false);
+  const [quranMessage, setQuranMessage] = useState('');
+  const [readSubTab, setReadSubTab] = useState('quran');
+  const [quranViewMode, setQuranViewMode] = useState('full'); // 'single' or 'full'
+  const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
   const [currentSurah, setCurrentSurah] = useState<any>(null);
   const [currentVerses, setCurrentVerses] = useState<any[]>([]);
   const [selectedSurahNumber, setSelectedSurahNumber] = useState(1);
