@@ -4415,7 +4415,7 @@ function MainApp({ user }: { user: any }) {
                     transition: 'all 0.15s ease',
                     border: '2px solid ' + (currentPlayingVerse === verse.verse_number ? '#8b5cf6' : '#e5e7eb')
                   }}
-                  onClick={() => playVerseAudio('single', verse.verse_number)}
+                  onClick={() => playVerseAudio(verse.verse_number, verse.global_ayah_number)}
                   onMouseEnter={(e) => {
                     if (currentPlayingVerse !== verse.verse_number) {
                       e.currentTarget.style.backgroundColor = '#e5e7eb';
