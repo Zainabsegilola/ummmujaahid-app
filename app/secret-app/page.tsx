@@ -774,12 +774,6 @@ function MainApp({ user }: { user: any }) {
       setIsLoadingQuran(false);
     }
   };
-
-  
-  };
-
-        }
-
         if (audioUrls.length === 0) {
         setQuranMessage('❌ No audio to play');
         return;
