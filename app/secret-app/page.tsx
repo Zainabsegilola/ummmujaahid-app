@@ -3958,34 +3958,27 @@ function MainApp({ user }: { user: any }) {
 
             {/* Play/Stop Button */}
             <button
-            onClick={() => {
+              onClick={() => {
                 if (isPlayingContinuous || currentPlayingVerse) {
-                stopAudio();
+                  stopAudio();
                 } else {
-                if (playMode === 'single') {
-                    const verseNum = quranViewMode === 'single' 
-                    ? currentVerses[currentVerseIndex]?.verse_number 
-                    : 1;
-                    playVerseAudio('single', verseNum);
-                } else if (playMode === 'range') {
-                    playVerseAudio('range', null, playRange.start, playRange.end);
-                } else {
-                    playVerseAudio('full');
+                  // Simple: just remove all this complex logic
+                  setQuranMessage('🎵 Use verse numbers to play audio');
+                  setTimeout(() => setQuranMessage(''), 2000);
                 }
-                }
-            }}
-            style={{
-                backgroundColor: isPlayingContinuous || currentPlayingVerse ? '#dc2626' : '#059669',
-                color: 'white',
+              }}
+              style={{
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
                 padding: '6px 12px',
                 borderRadius: '6px',
                 border: 'none',
                 fontSize: '12px',
                 fontWeight: '600',
                 cursor: 'pointer'
-            }}
+              }}
             >
-            {isPlayingContinuous || currentPlayingVerse ? '⏹ Stop' : '▶ Play'}
+              Click verse numbers to play
             </button>
         </div>
 
@@ -4141,8 +4134,14 @@ function MainApp({ user }: { user: any }) {
           </span>
           
           <button
-            onClick={() => playVerseAudio('single', currentVerse.verse_number)}
-            disabled={currentPlayingVerse === currentVerse.verse_number}
+            onClick={() => {
+              if (currentPlayingVerse === currentVerse.verse_number) {
+                stopAudio();
+              } else {
+                playVerseAudio(currentVerse.verse_number, currentVerse.global_ayah_number);
+              }
+            }}
+            disabled={isLoadingAudio}
             style={{
               backgroundColor: currentPlayingVerse === currentVerse.verse_number ? '#dc2626' : '#059669',
               color: 'white',
