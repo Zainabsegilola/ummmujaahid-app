@@ -731,18 +731,7 @@ function MainApp({ user }: { user: any }) {
     });
     return words;
   };
-  // Load surahs list
-  const loadSurahs = async () => {
-    try {
-      const { data, error } = await fetchSurahsList();
-      if (!error && data) {
-        setSurahs(data);
-      }
-    } catch (error) {
-      console.error('Error loading surahs:', error);
-    }
-  };
-
+  
   // Updated loadSurahVerses function
    // REPLACE your loadSurahVerses function with this enhanced version:
   const loadSurahVerses = async (surahNumber) => {
