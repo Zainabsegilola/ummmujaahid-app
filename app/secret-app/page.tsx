@@ -428,10 +428,7 @@ function MainApp({ user }: { user: any }) {
   // Harakat states
   const [harakatCache, setHarakatCache] = useState<Map<string, string>>(new Map());
   const [isProcessingHarakat, setIsProcessingHarakat] = useState(false);
-  //translation states
-  const [showTranslations, setShowTranslations] = useState(false);
-  const [currentReciter, setCurrentReciter] = useState('alafasy');
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  
   // Quran states
   const [surahs, setSurahs] = useState<any[]>([]);
   const [currentSurah, setCurrentSurah] = useState<any>(null);
