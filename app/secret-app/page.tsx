@@ -4582,10 +4582,6 @@ function MainApp({ user }: { user: any }) {
                     {verse.text_translation || 'Translation loading...'}
                   </div>
                 )}
-
-{/* Add space between verses */}
-{index < currentVerses.length - 1 && <span> </span>}
-
                 {/* Add space between verses */}
                 {index < currentVerses.length - 1 && <span> </span>}
             </span>
