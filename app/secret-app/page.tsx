@@ -372,6 +372,7 @@ function ProfileDropdown({ user, onLogout }) {
 // Main App Component
 function MainApp({ user }: { user: any }) {
   const [activeTab, setActiveTab] = useState('watch');
+  const [readSubTab, setReadSubTab] = useState('quran');
   
   // Video states
   const [player, setPlayer] = useState<any>(null);
