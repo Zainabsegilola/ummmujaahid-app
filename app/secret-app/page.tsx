@@ -775,25 +775,65 @@ function MainApp({ user }: { user: any }) {
     }
   };
     const playVerseAudio = async (verseNumber: number, globalAyahNumber: number) => {
-        try {
-          // DEBUG: Log all the data we're receiving
-          console.log('🔍 DEBUG Audio Data:');
-          console.log('- Verse Number:', verseNumber);
-          console.log('- Global Ayah Number:', globalAyahNumber);
-          console.log('- Current Verses:', currentVerses);
-          
-          // Find the verse in currentVerses to see its data
-          const verse = currentVerses.find(v => v.verse_number === verseNumber);
-          console.log('- Found Verse Object:', verse);
-          
-          // Stop here for now - don't play audio yet
-          setQuranMessage(`🔍 Debug: Verse ${verseNumber}, Global: ${globalAyahNumber}`);
-          return;
-          
-        } catch (error) {
-          console.error('Debug failed:', error);
-        }
+    try {
+      console.log('🎵 Playing verse:', verseNumber, 'Global ayah:', globalAyahNumber);
+      
+      // Stop any currently playing audio
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        setCurrentPlayingVerse(null);
+      }
+  
+      // Handle missing data
+      if (!globalAyahNumber || globalAyahNumber === undefined) {
+        setQuranMessage(`❌ Missing audio data for verse ${verseNumber}`);
+        setTimeout(() => setQuranMessage(''), 3000);
+        return;
+      }
+  
+      setIsLoadingAudio(true);
+      setQuranMessage(`🔄 Loading verse ${verseNumber}...`);
+  
+      // Use EveryAyah.com with correct padding
+      const paddedNumber = String(globalAyahNumber).padStart(6, '0');
+      const audioUrl = `https://everyayah.com/data/Alafasy_128kbps/${paddedNumber}.mp3`;
+      
+      console.log('🎵 Audio URL:', audioUrl);
+  
+      const audio = new Audio();
+      audio.preload = 'auto';
+      
+      audio.oncanplay = () => {
+        setQuranMessage(`🔊 Playing verse ${verseNumber}`);
       };
+      
+      audio.onended = () => {
+        setCurrentPlayingVerse(null);
+        setCurrentAudio(null);
+        setQuranMessage('');
+      };
+      
+      audio.onerror = () => {
+        setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
+        setCurrentPlayingVerse(null);
+        setTimeout(() => setQuranMessage(''), 3000);
+      };
+  
+      audio.src = audioUrl;
+      setCurrentAudio(audio);
+      setCurrentPlayingVerse(verseNumber);
+      
+      await audio.play();
+  
+    } catch (error) {
+      console.error('Audio playback failed:', error);
+      setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
+      setCurrentPlayingVerse(null);
+    } finally {
+      setIsLoadingAudio(false);
+    }
+  };
   const stopAudio = () => {
     if (currentAudio) {
       currentAudio.pause();
@@ -4301,7 +4341,7 @@ function MainApp({ user }: { user: any }) {
             {/* Audio Controls for Full Surah */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', alignItems: 'center' }}>
                 <button
-                onClick={() => playVerseAudio('full')}
+                onClick={() => console.log('Full surah play removed')}
                 disabled={isPlayingContinuous}
                 style={{
                     backgroundColor: isPlayingContinuous ? '#dc2626' : '#059669',
