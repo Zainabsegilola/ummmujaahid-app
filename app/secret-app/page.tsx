@@ -4395,29 +4395,29 @@ function MainApp({ user }: { user: any }) {
 
     return (
         <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
-          {/* Mushaf Header */}
-          <div style={{ 
-              padding: '20px 30px',
-              borderBottom: '2px solid #f3f4f6',
-              backgroundColor: '#f9fafb'
-          }}>
-              <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                  fontSize: '24px', 
-                  fontWeight: '700', 
-                  color: '#8b5cf6',
-                  fontFamily: 'Arial, sans-serif',
-                  direction: 'rtl',
-                  marginBottom: '8px'
-              }}>
-                  {currentSurah?.name_arabic}
-              </div>
-              <div style={{ 
-                  fontSize: '16px', 
-                  color: '#6b7280',
-                  marginBottom: '12px'
-              }}>
-                  {currentSurah?.name_english} • {currentVerses.length} Verses • {currentSurah?.revelation_place}
+        {/* Mushaf Header */}
+        <div style={{ 
+            padding: '20px 30px',
+            borderBottom: '2px solid #f3f4f6',
+            backgroundColor: '#f9fafb'
+        }}>
+            <div style={{ textAlign: 'center' }}>
+            <div style={{ 
+                fontSize: '24px', 
+                fontWeight: '700', 
+                color: '#8b5cf6',
+                fontFamily: 'Arial, sans-serif',
+                direction: 'rtl',
+                marginBottom: '8px'
+            }}>
+                {currentSurah?.name_arabic}
+            </div>
+            <div style={{ 
+                fontSize: '16px', 
+                color: '#6b7280',
+                marginBottom: '12px'
+            }}>
+                {currentSurah?.name_english} • {currentVerses.length} Verses • {currentSurah?.revelation_place}
             </div>
             
             {/* Audio Controls for Full Surah */}
@@ -4518,7 +4518,8 @@ function MainApp({ user }: { user: any }) {
                     [Verse {verse.verse_number} - text unavailable]
                     </span>
                 )}
-                                {/* Verse Number in Circle (Traditional Style) */}
+                </span>
+                {/* Verse Number in Circle (Traditional Style) */}
                 <span
                   style={{
                     display: 'inline-block',
@@ -4582,6 +4583,7 @@ function MainApp({ user }: { user: any }) {
                     {verse.text_translation || 'Translation loading...'}
                   </div>
                 )}
+                
                 {/* Add space between verses */}
                 {index < currentVerses.length - 1 && <span> </span>}
             </span>
