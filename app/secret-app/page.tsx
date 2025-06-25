@@ -443,7 +443,7 @@ function MainApp({ user }: { user: any }) {
     show_translation: false,
     auto_scroll: true
   });
-  //audio and play states
+  //audio and play state
   // Enhanced audio states
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
