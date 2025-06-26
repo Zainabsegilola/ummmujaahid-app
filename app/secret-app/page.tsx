@@ -2373,9 +2373,9 @@ function MainApp({ user }: { user: any }) {
               fontSize: '14px',
               fontFamily: 'Roboto, sans-serif'
             }}>
-              <span style={{ color: '#059669' }}>📗 {stats.totalNew} new</span>
-              <span style={{ color: '#dc2626' }}>📕 {stats.totalDue} due</span>
-              <span style={{ color: '#ea580c' }}>📙 {stats.totalLearning} learning</span>
+              <span style={{ color: '#059669' }}> {stats.totalNew} new</span>
+              <span style={{ color: '#dc2626' }}> {stats.totalDue} due</span>
+              <span style={{ color: '#ea580c' }}>{stats.totalLearning} learning</span>
             </div>
           </div>
       
@@ -2416,9 +2416,9 @@ function MainApp({ user }: { user: any }) {
                         display: 'flex',
                         gap: '12px'
                       }}>
-                        <span style={{ color: '#059669' }}>[new: {deck.newCards || 0}]</span>
-                        <span style={{ color: '#dc2626' }}>[due: {deck.reviewCards || 0}]</span>
-                        <span style={{ color: '#ea580c' }}>[learning: {deck.learningCards || 0}]</span>
+                        <span style={{ color: '#059669' }}>new: {deck.newCards || 0}</span>
+                        <span style={{ color: '#dc2626' }}>due: {deck.reviewCards || 0}</span>
+                        <span style={{ color: '#ea580c' }}>learning: {deck.learningCards || 0}</span>
                       </div>
                     </div>
                     
