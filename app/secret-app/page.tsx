@@ -405,6 +405,7 @@ function MainApp({ user }: { user: any }) {
   const [deckToDelete, setDeckToDelete] = useState(null);
   const [isDeletingDeck, setIsDeletingDeck] = useState(false);
   const [deletedDeckInfo, setDeletedDeckInfo] = useState(null); // For undo functionality
+  const [isMasterDeckExpanded, setIsMasterDeckExpanded] = useState(false); // NEW: State for master deck collapse
   
 
   // Study states
@@ -1307,8 +1308,6 @@ function MainApp({ user }: { user: any }) {
     const contextWords = transcriptWords.slice(startIndex, endIndex + 1);
     return contextWords.map(w => w.text).join(' ');
   };
-  // Add this helper function after getExpandedContext
-  // Replace your createMCDContext function with this fixed version:
   const createMCDContext = (context, targetWord) => {
         if (!context || !targetWord) return context;
         
@@ -1344,6 +1343,17 @@ function MainApp({ user }: { user: any }) {
         
         return result;
     };
+  // Progress stats calculation
+  const calculateProgressStats = () => {
+    const totalUniqueWords = decks.reduce((total, deck) => total + (deck.totalCards || 0), 0);
+    const targetWords = 1500; // Quran comprehension target
+    const progressPercentage = Math.min(Math.round((totalUniqueWords / targetWords) * 100), 100);
+    const totalNew = decks.reduce((total, deck) => total + (deck.newCards || 0), 0);
+    const totalDue = decks.reduce((total, deck) => total + (deck.reviewCards || 0), 0);
+    const totalLearning = decks.reduce((total, deck) => total + (deck.learningCards || 0), 0);
+    
+    return { totalUniqueWords, progressPercentage, totalNew, totalDue, totalLearning };
+  };
 
   const getCurrentSegment = () => {
     // Adjust for transcript timing offset - subtract time to sync better
@@ -1968,7 +1978,69 @@ function MainApp({ user }: { user: any }) {
       console.error('Error starting study:', error);
     }
   };
-
+  // NEW: Start studying from all decks combined
+  const startStudyingAllDecks = async () => {
+    try {
+      console.log('Starting study session from all decks...');
+      
+      // Get cards from all decks, prioritizing due cards
+      let allCards = [];
+      
+      for (const deck of decks) {
+        const { data: deckCards } = await getCardsForReview(deck.id, user.id, 50); // Get more cards per deck
+        if (deckCards && deckCards.length > 0) {
+          allCards = [...allCards, ...deckCards];
+        }
+      }
+      
+      if (allCards.length === 0) {
+        setCardMessage('ℹ️ No cards ready for review across all decks');
+        setTimeout(() => setCardMessage(''), 3000);
+        return;
+      }
+      
+      // Sort by priority: due cards first, then new cards (limit 10 new max)
+      const dueCards = allCards.filter(card => card.state === 'review' || card.state === 'relearning');
+      const learningCards = allCards.filter(card => card.state === 'learning');
+      const newCards = allCards.filter(card => card.state === 'new').slice(0, 10); // Limit to 10 new cards
+      
+      // Combine in priority order
+      const studySession = [...dueCards, ...learningCards, ...newCards];
+      
+      // Shuffle for variety (but maintain priority order within each group)
+      const shuffledSession = [
+        ...shuffleArray(dueCards),
+        ...shuffleArray(learningCards), 
+        ...shuffleArray(newCards)
+      ].slice(0, 50); // Limit total session to 50 cards
+      
+      if (shuffledSession.length > 0) {
+        setStudyCards(shuffledSession);
+        setCurrentStudyCard(shuffledSession[0]);
+        setStudyCardIndex(0);
+        setShowAnswer(false);
+        setStudyDeck({ name: 'All Cards', id: 'all-cards' }); // Virtual deck
+        setIsStudying(true);
+        
+        console.log(`✅ Starting study session: ${shuffledSession.length} cards (${newCards.length} new, ${dueCards.length} due, ${learningCards.length} learning)`);
+      }
+      
+    } catch (error) {
+      console.error('Error starting all-deck study session:', error);
+      setCardMessage('❌ Failed to start study session');
+      setTimeout(() => setCardMessage(''), 3000);
+    }
+  };
+  
+  // Helper function to shuffle array
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
   const handleStudyAnswer = async (rating: number) => {
     if (!currentStudyCard || !user?.id) return;
     
@@ -2078,43 +2150,55 @@ function MainApp({ user }: { user: any }) {
 
   // Deck list with integrated Manage button
   const renderDeckList = () => (
-    <div>
-      {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '24px',
-        paddingBottom: '16px',
-        borderBottom: '2px solid #e5e7eb'
-      }}>
-        <div>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0', color: '#111827' }}>
-            My Cards
-          </h2>
-          <p style={{ fontSize: '14px', color: '#6b7280', margin: '0' }}>
-            {decks.length} deck{decks.length !== 1 ? 's' : ''} • {decks.reduce((total, deck) => total + (deck.totalCards || 0), 0)} total cards
-          </p>
-        </div>
-        <button
-          onClick={loadUserDecks}
-          style={{
-            backgroundColor: '#8b5cf6',
-            color: 'white',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            border: 'none',
+    // NEW: Progress stats section
+    const stats = calculateProgressStats();
+    
+    return (
+      <div>
+        {/* NEW: Progress Statistics */}
+        <div style={{
+          backgroundColor: 'white',
+          padding: '20px',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#111827',
+            marginBottom: '8px',
+            fontFamily: 'Roboto, sans-serif'
+          }}>
+            {stats.totalUniqueWords.toLocaleString()} words • {stats.progressPercentage}% to fluency
+          </div>
+          
+          {/* Progress Bar */}
+          <div style={{
+            width: '100%',
+            height: '8px',
+            backgroundColor: '#f3f4f6',
+            borderRadius: '4px',
+            overflow: 'hidden',
+            marginBottom: '12px'
+          }}>
+            <div style={{
+              width: `${stats.progressPercentage}%`,
+              height: '100%',
+              backgroundColor: '#8b5cf6',
+              transition: 'width 0.3s ease'
+            }}></div>
+          </div>
+          
+          <div style={{
             fontSize: '14px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-        >
-          🔄 Refresh
-        </button>
-      </div>
+            color: '#6b7280',
+            fontFamily: 'Roboto, sans-serif'
+          }}>
+            Target: 1,500 words for Quranic comprehension
+          </div>
+        </div>
       {/* Management message with undo functionality */}
       {managementMessage && (
         <div style={{
@@ -2152,6 +2236,7 @@ function MainApp({ user }: { user: any }) {
       )}
 
       {decks.length === 0 ? (
+        // Keep existing empty state unchanged
         <div style={{ 
           backgroundColor: 'white', 
           padding: '60px', 
@@ -2182,223 +2267,160 @@ function MainApp({ user }: { user: any }) {
           </button>
         </div>
       ) : (
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '12px', 
+        // NEW: Master deck section
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
           border: '1px solid #e5e7eb',
           overflow: 'hidden'
         }}>
-          {/* Table Header */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 80px 80px 80px 160px',
-            gap: '16px',
-            padding: '16px 20px',
-            backgroundColor: '#f9fafb',
-            borderBottom: '1px solid #e5e7eb',
-            fontSize: '12px',
-            fontWeight: '600',
-            color: '#374151',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em'
-          }}>
-            <div>Deck Name</div>
-            <div style={{ textAlign: 'center' }}>New</div>
-            <div style={{ textAlign: 'center' }}>Learning</div>
-            <div style={{ textAlign: 'center' }}>Due</div>
-            <div style={{ textAlign: 'center' }}>Actions</div>
-          </div>
-
-          {/* Deck Rows */}
-          {decks.map((deck, index) => (
-            <div 
-              key={deck.id || index} 
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 80px 80px 80px 160px',
-                gap: '16px',
-                padding: '16px 20px',
-                borderBottom: index < decks.length - 1 ? '1px solid #f3f4f6' : 'none',
-                alignItems: 'center',
-                transition: 'background-color 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              {/* Deck Info */}
-              <div style={{ minWidth: 0 }}>
-                <div style={{ 
+          {/* Master Deck Header */}
+          <div 
+            onClick={() => setIsMasterDeckExpanded(!isMasterDeckExpanded)}
+            style={{
+              padding: '16px 20px',
+              cursor: 'pointer',
+              borderBottom: isMasterDeckExpanded ? '1px solid #f3f4f6' : 'none',
+              backgroundColor: isMasterDeckExpanded ? '#f9fafb' : 'white',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '16px', color: '#6b7280' }}>
+                  {isMasterDeckExpanded ? '▼' : '▶'}
+                </span>
+                <span style={{ 
                   fontSize: '16px', 
                   fontWeight: '600', 
                   color: '#111827',
-                  marginBottom: '4px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  fontFamily: 'Roboto, sans-serif'
                 }}>
-                  {deck.name || deck.video_title || 'Untitled Deck'}
-                </div>
-                <div style={{ 
-                  fontSize: '12px', 
-                  color: '#6b7280',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <span>{deck.totalCards || 0} cards</span>
-                  {deck.video_id && (
-                    <span style={{ 
-                      backgroundColor: '#f3f0ff',
-                      color: '#8b5cf6',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: '10px',
-                      fontWeight: '500'
-                    }}>
-                      📺 Video
-                    </span>
-                  )}
-                </div>
+                  All Cards
+                </span>
               </div>
-
-              {/* New Cards */}
-              <div style={{ 
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: '600',
-                color: deck.newCards > 0 ? '#059669' : '#9ca3af'
-              }}>
-                {deck.newCards || 0}
-              </div>
-
-              {/* Learning Cards */}
-              <div style={{ 
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: '600',
-                color: deck.learningCards > 0 ? '#ea580c' : '#9ca3af'
-              }}>
-                {deck.learningCards || 0}
-              </div>
-
-              {/* Due Cards */}
-              <div style={{ 
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: '600',
-                color: deck.reviewCards > 0 ? '#dc2626' : '#9ca3af'
-              }}>
-                {deck.reviewCards || 0}
-              </div>
-
               
-              {/* Actions - Study, Manage, and Delete buttons */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center',
-                gap: '6px'
-              }}>
-                {/* Study Button */}
-                {(deck.newCards > 0 || deck.reviewCards > 0 || deck.learningCards > 0) ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startStudying(deck);
-                    }}
-                    style={{
-                      backgroundColor: '#059669',
-                      color: 'white',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ▶ Study
-                  </button>
-                ) : (
-                  <span style={{
-                    color: '#9ca3af',
-                    fontSize: '11px',
-                    fontStyle: 'italic',
-                    padding: '6px 12px'
-                  }}>
-                    No cards due
-                  </span>
-                )}
-
-                {/* Manage Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    loadDeckCards(deck);
-                  }}
-                  style={{
-                    backgroundColor: '#8b5cf6',
-                    color: 'white',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ⚙️ Manage
-                </button>
-
-                {/* NEW: Delete Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteDeckClick(deck);
-                  }}
-                  style={{
-                    backgroundColor: '#fef2f2',
-                    color: '#dc2626',
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #fecaca',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  🗑️ Delete
-                </button>
-              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startStudyingAllDecks();
+                }}
+                style={{
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Study All
+              </button>
             </div>
-          ))}
-
-          {/* Summary Footer */}
-          <div style={{
-            padding: '16px 20px',
-            backgroundColor: '#f9fafb',
-            borderTop: '1px solid #e5e7eb',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '14px',
-            color: '#6b7280'
-          }}>
-            <div>
-              Total: {decks.reduce((total, deck) => total + (deck.totalCards || 0), 0)} cards across {decks.length} deck{decks.length !== 1 ? 's' : ''}
-            </div>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <span style={{ color: '#059669' }}>
-                📗 {decks.reduce((total, deck) => total + (deck.newCards || 0), 0)} new
-              </span>
-              <span style={{ color: '#ea580c' }}>
-                📙 {decks.reduce((total, deck) => total + (deck.learningCards || 0), 0)} learning
-              </span>
-              <span style={{ color: '#dc2626' }}>
-                📕 {decks.reduce((total, deck) => total + (deck.reviewCards || 0), 0)} due
-              </span>
+            
+            {/* Master deck stats */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              marginTop: '8px',
+              fontSize: '14px',
+              fontFamily: 'Roboto, sans-serif'
+            }}>
+              <span style={{ color: '#059669' }}>📗 {stats.totalNew} new</span>
+              <span style={{ color: '#dc2626' }}>📕 {stats.totalDue} due</span>
+              <span style={{ color: '#ea580c' }}>📙 {stats.totalLearning} learning</span>
             </div>
           </div>
+      
+          {/* Individual Decks (when expanded) */}
+          {isMasterDeckExpanded && (
+            <div style={{
+              maxHeight: '400px',
+              overflowY: 'auto',
+              transition: 'all 0.3s ease'
+            }}>
+              {decks.map((deck, index) => (
+                <div 
+                  key={deck.id || index}
+                  onClick={() => startStudying(deck)}
+                  style={{
+                    padding: '12px 20px 12px 40px', // Indented
+                    borderBottom: index < decks.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: '#111827',
+                        fontFamily: 'Roboto, sans-serif',
+                        marginBottom: '4px'
+                      }}>
+                        📚 {deck.name || deck.video_title || 'Untitled Deck'} ({deck.totalCards || 0} words)
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        fontFamily: 'Roboto, sans-serif',
+                        display: 'flex',
+                        gap: '12px'
+                      }}>
+                        <span style={{ color: '#059669' }}>[new: {deck.newCards || 0}]</span>
+                        <span style={{ color: '#dc2626' }}>[due: {deck.reviewCards || 0}]</span>
+                        <span style={{ color: '#ea580c' }}>[learning: {deck.learningCards || 0}]</span>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          loadDeckCards(deck);
+                        }}
+                        style={{
+                          backgroundColor: '#f3f4f6',
+                          color: '#374151',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: 'none',
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Manage
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteDeckClick(deck);
+                        }}
+                        style={{
+                          backgroundColor: '#fef2f2',
+                          color: '#dc2626',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          border: '1px solid #fecaca',
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -4574,7 +4596,7 @@ function MainApp({ user }: { user: any }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+   <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'Roboto, sans-serif' }}>
       <div style={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
         <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
