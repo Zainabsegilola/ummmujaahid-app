@@ -4849,7 +4849,7 @@ function MainApp({ user }: { user: any }) {
       </div>
     </div>
   );
-}
+ 
 
 // Root Component with Authentication
 function SecretApp() {
