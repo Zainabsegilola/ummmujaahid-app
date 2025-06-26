@@ -3508,17 +3508,6 @@ function MainApp({ user }: { user: any }) {
             {/* ENHANCED ANSWER SECTION */}
             {showAnswer && (
               <div style={{ marginBottom: '40px' }}>
-                {/* Small Surah Info Above */}
-                {currentStudyCard.surah_number && (
-                  <div style={{
-                    fontSize: '11px',
-                    color: '#6b7280',
-                    marginBottom: '8px',
-                    fontWeight: '500'
-                  }}>
-                    Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
-                  </div>
-                )}
                 
                 {/* Arabic Word */}
                 <div style={{ 
