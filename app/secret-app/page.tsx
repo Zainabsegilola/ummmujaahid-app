@@ -1321,34 +1321,43 @@ function MainApp({ user }: { user: any }) {
     return contextWords.map(w => w.text).join(' ');
   };
   const createMCDContext = (context, targetWord) => {
-        if (!context || !targetWord) return context;
-        
-        const cleanTarget = cleanArabicWord(targetWord).trim();
-        if (!cleanTarget) return context;
-        
-        // Create a more aggressive regex that catches the word with various Arabic diacritics
-        // This handles the word with or without harakat (diacritics)
-        const escapedWord = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Try multiple patterns to catch the word
-        const patterns = [
-            new RegExp(`\\b${escapedWord}\\b`, 'gi'), // Exact match with word boundaries
-            new RegExp(`${escapedWord}`, 'gi'), // Just the word without boundaries
-            new RegExp(`\\s${escapedWord}\\s`, 'gi'), // Word with spaces
-            new RegExp(`${escapedWord}[\\u064B-\\u065F]*`, 'gi') // Word with potential diacritics
-        ];
-        
-        let result = context;
-        
-        // Try each pattern until one works
-        for (const pattern of patterns) {
-            const testResult = result.replace(pattern, ' [...] ');
-            if (testResult !== result) {
-            result = testResult;
-            break;
-            }
+      if (!context || !targetWord) return context;
+      
+      // REMOVE SURAH INFO from context before processing
+      let cleanContext = context;
+      
+      // Remove "Surah [Name] ([Number]), Verse [Number]: " from the beginning
+      cleanContext = cleanContext.replace(/^Surah [^:]+:\s*/, '');
+      
+      const cleanTarget = cleanArabicWord(targetWord).trim();
+      if (!cleanTarget) return cleanContext;
+      
+      // Create regex for the word
+      const escapedWord = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      const patterns = [
+        new RegExp(`\\b${escapedWord}\\b`, 'gi'),
+        new RegExp(`${escapedWord}`, 'gi'),
+        new RegExp(`\\s${escapedWord}\\s`, 'gi'),
+        new RegExp(`${escapedWord}[\\u064B-\\u065F]*`, 'gi')
+      ];
+      
+      let result = cleanContext;
+      
+      for (const pattern of patterns) {
+        const testResult = result.replace(pattern, ' [...] ');
+        if (testResult !== result) {
+          result = testResult;
+          break;
         }
-        
+      }
+      
+      result = result.replace(/\s+\[\.\.\.\]\s+/g, ' [...] ');
+      result = result.replace(/^\s+|\s+$/g, '');
+      
+      return result;
+    };
+            
         // Clean up extra spaces around the deletion
         result = result.replace(/\s+\[\.\.\.\]\s+/g, ' [...] ');
         result = result.replace(/^\s+|\s+$/g, ''); // Trim
@@ -3475,7 +3484,17 @@ function MainApp({ user }: { user: any }) {
           }}>
             
             {/* Header with progress - same as before */}
-            
+            <div style={{ marginBottom: '40px' }}>
+                {/* Small Surah Info Above */}
+                {currentStudyCard.surah_number && (
+                  <div style={{
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    marginBottom: '8px',
+                    fontWeight: '500'
+                  }}>
+                    Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
+                  </div>
             {/* FRONT: MCD Context */}
             <div style={{ 
               fontSize: '2.2rem', 
@@ -3507,17 +3526,6 @@ function MainApp({ user }: { user: any }) {
   
             {/* ENHANCED ANSWER SECTION */}
             {showAnswer && (
-              <div style={{ marginBottom: '40px' }}>
-                {/* Small Surah Info Above */}
-                {currentStudyCard.surah_number && (
-                  <div style={{
-                    fontSize: '11px',
-                    color: '#6b7280',
-                    marginBottom: '8px',
-                    fontWeight: '500'
-                  }}>
-                    Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
-                  </div>
                 )}
                 
                 {/* Arabic Word */}
