@@ -1320,41 +1320,59 @@ function MainApp({ user }: { user: any }) {
     const contextWords = transcriptWords.slice(startIndex, endIndex + 1);
     return contextWords.map(w => w.text).join(' ');
   };
+ 
   const createMCDContext = (context, targetWord) => {
-        if (!context || !targetWord) return context;
-        
-        const cleanTarget = cleanArabicWord(targetWord).trim();
-        if (!cleanTarget) return context;
-        
-        // Create a more aggressive regex that catches the word with various Arabic diacritics
-        // This handles the word with or without harakat (diacritics)
-        const escapedWord = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        
-        // Try multiple patterns to catch the word
-        const patterns = [
-            new RegExp(`\\b${escapedWord}\\b`, 'gi'), // Exact match with word boundaries
-            new RegExp(`${escapedWord}`, 'gi'), // Just the word without boundaries
-            new RegExp(`\\s${escapedWord}\\s`, 'gi'), // Word with spaces
-            new RegExp(`${escapedWord}[\\u064B-\\u065F]*`, 'gi') // Word with potential diacritics
-        ];
-        
-        let result = context;
-        
-        // Try each pattern until one works
-        for (const pattern of patterns) {
-            const testResult = result.replace(pattern, ' [...] ');
-            if (testResult !== result) {
-            result = testResult;
-            break;
-            }
-        }
-        
-        // Clean up extra spaces around the deletion
-        result = result.replace(/\s+\[\.\.\.\]\s+/g, ' [...] ');
-        result = result.replace(/^\s+|\s+$/g, ''); // Trim
-        
-        return result;
-    };
+    if (!context || !targetWord) return context;
+    
+    let cleanedContext = context;
+    
+    // Step 1: Remove video metadata prefixes
+    // Matches: "Video: [anything] - Context: " or "Video: [anything] Context: "
+    cleanedContext = cleanedContext.replace(/^Video:\s*.*?\s*-?\s*Context:\s*/i, '');
+    
+    // Step 2: Remove Quran metadata prefixes  
+    // Matches: "Surah [name] ([number]), Verse [number]: " 
+    cleanedContext = cleanedContext.replace(/^Surah\s+[^(]+\s*\([^)]+\),\s*Verse\s+\d+:\s*/i, '');
+    
+    // Step 3: Remove any remaining English metadata patterns
+    // Matches patterns like "Speaker: [name] -" or similar
+    cleanedContext = cleanedContext.replace(/^[A-Za-z]+:\s*[^-]*-\s*/g, '');
+    
+    // Step 4: Clean up any extra whitespace
+    cleanedContext = cleanedContext.trim();
+    
+    // Step 5: Apply word replacement with [...]
+    const cleanTarget = cleanArabicWord(targetWord).trim();
+    if (!cleanTarget) return cleanedContext;
+    
+    // Create aggressive regex patterns to catch the word with various diacritics
+    const escapedWord = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Try multiple patterns to catch the word
+    const patterns = [
+      new RegExp(`\\b${escapedWord}\\b`, 'gi'), // Exact match with word boundaries
+      new RegExp(`${escapedWord}`, 'gi'), // Just the word without boundaries
+      new RegExp(`\\s${escapedWord}\\s`, 'gi'), // Word with spaces
+      new RegExp(`${escapedWord}[\\u064B-\\u065F]*`, 'gi') // Word with potential diacritics
+    ];
+    
+    let result = cleanedContext;
+    
+    // Try each pattern until one works
+    for (const pattern of patterns) {
+      const testResult = result.replace(pattern, ' [...] ');
+      if (testResult !== result) {
+        result = testResult;
+        break;
+      }
+    }
+    
+    // Clean up extra spaces around the deletion
+    result = result.replace(/\s+\[\.\.\.\]\s+/g, ' [...] ');
+    result = result.replace(/^\s+|\s+$/g, ''); // Trim
+    
+    return result;
+  };
   // Progress stats calculation
   const calculateProgressStats = () => {
     const totalUniqueWords = decks.reduce((total, deck) => total + (deck.totalCards || 0), 0);
