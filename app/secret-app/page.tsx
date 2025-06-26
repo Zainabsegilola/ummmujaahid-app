@@ -1222,73 +1222,85 @@ function MainApp({ user }: { user: any }) {
       </div>
     );
 
-   // Handle word double-click (add to deck)
-   // Enhanced handleQuranWordDoubleClick with translation
+   
+  // 2. ENHANCED QURAN TRANSLATION CALL
   const handleQuranWordDoubleClick = async (word: string, surahNumber: number, verseNumber: number, wordPosition: number, verseText: string) => {
-      if (!user?.id) {
-        setQuranMessage('❌ Not logged in');
-        setTimeout(() => setQuranMessage(''), 3000);
-        return;
-      }
-
-      if (!quranDeck?.id) {
-        setQuranMessage('❌ No deck loaded');
-        setTimeout(() => setQuranMessage(''), 3000);
-        return;
-      }
-
-      const cleanWord = cleanArabicWord(word);
-      if (!cleanWord) {
-        setQuranMessage('❌ No Arabic text in this word');
-        setTimeout(() => setQuranMessage(''), 3000);
-        return;
-      }
-
-      try {
-        setQuranMessage('🔄 Adding card with translation...');
-        
-        // Step 1: Get translation for the word
-        const translationData = await fetchTranslation(cleanWord, verseText);
-        
-        if (translationData) {
-          setQuranMessage('🔄 Translation received, saving Quran card...');
-          console.log('Quran translation data:', translationData);
-        } else {
-          setQuranMessage('🔄 Translation failed, saving card without translation...');
+    if (!user?.id) {
+      setQuranMessage('❌ Not logged in');
+      setTimeout(() => setQuranMessage(''), 3000);
+      return;
+    }
+  
+    if (!quranDeck?.id) {
+      setQuranMessage('❌ No deck loaded');
+      setTimeout(() => setQuranMessage(''), 3000);
+      return;
+    }
+  
+    const cleanWord = cleanArabicWord(word);
+    if (!cleanWord) {
+      setQuranMessage('❌ No Arabic text in this word');
+      setTimeout(() => setQuranMessage(''), 3000);
+      return;
+    }
+  
+    try {
+      setQuranMessage('🔄 Creating enhanced Quranic analysis...');
+      
+      // Enhanced context with Surah info
+      const surahName = currentSurah?.name_english || 'Unknown Surah';
+      const enhancedContext = `Surah ${surahName} (${surahNumber}), Verse ${verseNumber}: ${verseText}`;
+      
+      // ENHANCED API CALL
+      const translationData = await fetchEnhancedTranslation(
+        cleanWord, 
+        enhancedContext, 
+        'quran',
+        {
+          surahName: surahName,
+          surahNumber: surahNumber,
+          verseNumber: verseNumber
         }
-
-        // Step 2: Save Quran card with translation data
-        const result = await addQuranCard(
-          quranDeck.id,
-          cleanWord,
-          surahNumber,
-          verseNumber,
-          wordPosition,
-          verseText,
-          user.id,
-          translationData  // Add translation data
-        );
-
-        if (result.error) {
-          if (result.error.message?.includes('duplicate key')) {
-            setQuranMessage(`ℹ️ "${cleanWord}" already in deck`);
-          } else {
-            setQuranMessage(`❌ Error: ${result.error.message}`);
-          }
-        } else {
-          const message = translationData 
-            ? `✅ Added "${cleanWord}" with translation!`
-            : `✅ Added "${cleanWord}" (translation will be added later)`;
-          setQuranMessage(message);
-          await loadUserDecks();
-        }
-      } catch (error) {
-        setQuranMessage(`❌ Failed: ${error.message}`);
-      } finally {
-        setTimeout(() => setQuranMessage(''), 4000);
+      );
+      
+      if (translationData) {
+        setQuranMessage('🔄 Enhanced Quranic analysis received, saving card...');
+        console.log('Enhanced Quran translation:', translationData);
+      } else {
+        setQuranMessage('🔄 Analysis failed, saving card without enhanced data...');
       }
-    };
-
+  
+      // Save Quran card with enhanced translation data
+      const result = await addQuranCard(
+        quranDeck.id,
+        cleanWord,
+        surahNumber,
+        verseNumber,
+        wordPosition,
+        enhancedContext, // Use enhanced context
+        user.id,
+        translationData
+      );
+  
+      if (result.error) {
+        if (result.error.message?.includes('duplicate key')) {
+          setQuranMessage(`ℹ️ "${cleanWord}" already in deck`);
+        } else {
+          setQuranMessage(`❌ Error: ${result.error.message}`);
+        }
+      } else {
+        const message = translationData 
+          ? `✅ Added "${cleanWord}" with enhanced Quranic analysis!`
+          : `✅ Added "${cleanWord}" (analysis will be added later)`;
+        setQuranMessage(message);
+        await loadUserDecks();
+      }
+    } catch (error) {
+      setQuranMessage(`❌ Failed: ${error.message}`);
+    } finally {
+      setTimeout(() => setQuranMessage(''), 4000);
+    }
+  };
   // Load user Quran settings
   const loadQuranSettings = async () => {
     if (!user?.id) return;
@@ -1814,7 +1826,6 @@ function MainApp({ user }: { user: any }) {
     // Use the segment start time, not the calculated word timestamp
     seekTo(word.segmentStart);
     };
-
   const handleWordDoubleClick = async (word) => {
     if (!user?.id) {
       setCardMessage('❌ Not logged in');
@@ -1826,16 +1837,16 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 3000);
       return;
     }
-
+  
     const cleanWord = cleanArabicWord(word.text);
     if (!cleanWord) {
       setCardMessage('❌ No Arabic text in this word');
       setTimeout(() => setCardMessage(''), 3000);
       return;
     }
-
-    // Get expanded context (keep this part)
-    const getExpandedContext = () => {
+  
+    // Enhanced context with video title
+    const getEnhancedYouTubeContext = () => {
       if (transcriptWords.length > 0) {
         const wordIndex = transcriptWords.findIndex(w =>
           w.segmentIndex === word.segmentIndex &&
@@ -1846,38 +1857,49 @@ function MainApp({ user }: { user: any }) {
           const startIndex = Math.max(0, wordIndex - 10);
           const endIndex = Math.min(transcriptWords.length - 1, wordIndex + 10);
           const contextWords = transcriptWords.slice(startIndex, endIndex + 1);
-          return contextWords.map(w => w.text).join(' ');
+          const contextText = contextWords.map(w => w.text).join(' ');
+          
+          // Enhanced format with video title
+          return `Video: ${currentVideoTitle || 'Educational Content'} - Context: ${contextText}`;
         }
       }
-      return word.segmentText || cleanWord;
+      return `Video: ${currentVideoTitle || 'Educational Content'} - Context: ${word.segmentText || cleanWord}`;
     };
-
-    const expandedContext = getExpandedContext();
+  
+    const enhancedContext = getEnhancedYouTubeContext();
     
     setIsAddingCard(true);
-    setCardMessage('🔄 Creating card with translation...');  // ← Changed message
-
+    setCardMessage('🔄 Creating enhanced Arabic analysis...');
+  
     try {
-      // ✅ STEP 1: FETCH TRANSLATION (ADD THIS SECTION)
-      const translationData = await fetchTranslation(cleanWord, expandedContext);
+      // ENHANCED API CALL
+      const translationData = await fetchEnhancedTranslation(
+        cleanWord, 
+        enhancedContext, 
+        'youtube', 
+        {
+          videoTitle: currentVideoTitle,
+          timestamp: word.timestamp
+        }
+      );
       
       if (translationData) {
-        setCardMessage('🔄 Translation received, saving card...');
-        console.log('Translation data:', translationData);
+        setCardMessage('🔄 Enhanced translation received, saving card...');
+        console.log('Enhanced YouTube translation:', translationData);
       } else {
-        setCardMessage('🔄 Translation failed, saving card without translation...');
+        setCardMessage('🔄 Translation failed, saving card without enhanced data...');
       }
-
-      // ✅ STEP 2: SAVE CARD WITH TRANSLATION (MODIFIED THIS LINE)
+  
+      // Save card with enhanced translation data
       const result = await addCardToDeck(
         currentDeck.id,
         cleanWord,
-        expandedContext,
+        enhancedContext,
         word.timestamp,
         user.id,
-        translationData  // ← ADD THIS PARAMETER!
+        translationData
       );
-
+  
       if (result.error) {
         if (result.error.message?.includes('duplicate key')) {
           setCardMessage(`ℹ️ "${cleanWord}" already in deck`);
@@ -1885,10 +1907,9 @@ function MainApp({ user }: { user: any }) {
           setCardMessage(`❌ Error: ${result.error.message}`);
         }
       } else {
-        // ✅ UPDATED SUCCESS MESSAGE
         const message = translationData 
-          ? `✅ Added "${cleanWord}" with translation!`
-          : `✅ Added "${cleanWord}" (translation will be added later)`;
+          ? `✅ Added "${cleanWord}" with enhanced analysis!`
+          : `✅ Added "${cleanWord}" (analysis will be added later)`;
         setCardMessage(message);
         await loadUserDecks();
       }
@@ -1896,9 +1917,11 @@ function MainApp({ user }: { user: any }) {
       setCardMessage(`❌ Failed: ${error.message}`);
     } finally {
       setIsAddingCard(false);
-      setTimeout(() => setCardMessage(''), 4000);  // ← Longer timeout
+      setTimeout(() => setCardMessage(''), 4000);
     }
   };
+
+  
   const saveCardDetails = async () => {
     if (!currentDeck?.id || !user?.id || !editingCard) return;
     setIsAddingCard(true);
@@ -1924,10 +1947,10 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 3000);
     }
   };
-  // Add this helper function in your MainApp component (near other helper functions)
-  const fetchTranslation = async (arabicWord, context) => {
+   // 3. ENHANCED TRANSLATION FETCH FUNCTION
+  const fetchEnhancedTranslation = async (arabicWord: string, context: string, sourceType: string, sourceInfo: any) => {
     try {
-      console.log('🔄 Fetching translation for:', arabicWord);
+      console.log('🔄 Fetching enhanced translation for:', arabicWord, 'Type:', sourceType);
       
       const response = await fetch('/api/translate', {
         method: 'POST',
@@ -1936,29 +1959,30 @@ function MainApp({ user }: { user: any }) {
         },
         body: JSON.stringify({
           arabicWord: arabicWord,
-          context: context || ''
+          context: context,
+          sourceType: sourceType,
+          sourceInfo: sourceInfo
         })
       });
-
+  
       if (!response.ok) {
-        throw new Error(`Translation API failed: ${response.status}`);
+        throw new Error(`Enhanced translation API failed: ${response.status}`);
       }
-
+  
       const data = await response.json();
       
       if (data.success && data.translation) {
-        console.log('✅ Translation received:', data.translation);
+        console.log('✅ Enhanced translation received:', data.translation);
         return data.translation;
       } else {
-        console.warn('⚠️ Translation API returned no data');
+        console.warn('⚠️ Enhanced translation API returned no data');
         return null;
       }
     } catch (error) {
-      console.error('❌ Translation fetch failed:', error);
+      console.error('❌ Enhanced translation fetch failed:', error);
       return null;
     }
   };
-
   // Study functions
   const startStudying = async (deck: any) => {
     try {
@@ -3431,329 +3455,315 @@ function MainApp({ user }: { user: any }) {
       // Otherwise show the deck list
       return renderDeckList();
     };
-
-  // STEP 5: Extract your existing study interface into this separate function:
-  const renderStudyInterface = () => {
-      const mcdContext = createMCDContext(currentStudyCard.context, currentStudyCard.arabic_word);
-
-      return (
-        <div>
-          {/* Back to decks button */}
-          <div style={{ marginBottom: '20px' }}>
-            <button
-              onClick={() => {
-                setIsStudying(false);
-                setCurrentStudyCard(null);
-                setStudyCards([]);
-                setStudyCardIndex(0);
-                setShowAnswer(false);
-              }}
-              style={{
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              ← Back to My Cards
-            </button>
-          </div>
-
-          {/* Study Card Interface */}
-          <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+  // 4. ENHANCED STUDY CARD DISPLAY (Updated renderStudyInterface)
+  const renderEnhancedStudyInterface = () => {
+    const mcdContext = createMCDContext(currentStudyCard.context, currentStudyCard.arabic_word);
+  
+    return (
+      <div>
+        {/* Back button and header - same as before */}
+        
+        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '40px', 
+            borderRadius: '16px', 
+            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
+            textAlign: 'center'
+          }}>
+            
+            {/* Header with progress - same as before */}
+            
+            {/* FRONT: MCD Context */}
             <div style={{ 
-              backgroundColor: 'white', 
-              padding: '40px', 
-              borderRadius: '16px', 
-              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
-              textAlign: 'center'
+              fontSize: '2.2rem', 
+              color: '#374151', 
+              marginBottom: '40px',
+              direction: 'rtl',
+              fontFamily: 'Arial, sans-serif',
+              lineHeight: '1.6',
+              backgroundColor: '#f8f9fa',
+              padding: '30px',
+              borderRadius: '12px',
+              border: '2px solid #e9ecef',
+              minHeight: '120px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}>
-              {/* Header */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: '30px',
-                paddingBottom: '20px',
-                borderBottom: '2px solid #f3f4f6'
-              }}>
-                <h3 style={{ margin: '0', color: '#374151', fontSize: '18px' }}>
-                  {studyDeck?.name}
-                </h3>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <span style={{ 
-                    fontSize: '14px', 
-                    color: '#6b7280',
-                    backgroundColor: '#f9fafb',
-                    padding: '6px 12px',
-                    borderRadius: '6px'
-                  }}>
-                    {studyCardIndex + 1} / {studyCards.length}
-                  </span>
-                  <button
-                    onClick={() => {
-                      if (player && player.seekTo && typeof player.seekTo === 'function') {
-                        try {
-                          player.seekTo(currentStudyCard.video_timestamp || 0, true);
-                          setActiveTab('watch');
-                        } catch (error) {
-                          const videoId = currentDeck?.video_id || studyDeck?.video_id;
-                          if (videoId) {
-                            const timestamp = Math.floor(currentStudyCard.video_timestamp || 0);
-                            window.open(`https://youtube.com/watch?v=${videoId}&t=${timestamp}s`, '_blank');
-                          }
-                        }
-                      } else {
-                        const videoId = currentDeck?.video_id || studyDeck?.video_id;
-                        if (videoId) {
-                          const timestamp = Math.floor(currentStudyCard.video_timestamp || 0);
-                          window.open(`https://youtube.com/watch?v=${videoId}&t=${timestamp}s`, '_blank');
-                        }
-                      }
-                    }}
-                    style={{
-                      backgroundColor: '#059669',
-                      color: 'white',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🎵 Play Audio
-                  </button>
+              {mcdContext}
+            </div>
+  
+            <div style={{ 
+              fontSize: '16px', 
+              color: '#6b7280', 
+              marginBottom: '30px',
+              fontStyle: 'italic'
+            }}>
+              What word goes in the blank?
+            </div>
+  
+            {/* ENHANCED ANSWER SECTION */}
+            {showAnswer && (
+              <div style={{ marginBottom: '40px' }}>
+                {/* Arabic Word */}
+                <div style={{ 
+                  fontSize: '3.5rem', 
+                  fontWeight: '700', 
+                  color: '#8b5cf6',
+                  direction: 'rtl',
+                  marginBottom: '30px',
+                  fontFamily: 'Arial, sans-serif'
+                }}>
+                  {currentStudyCard.arabic_word}
                 </div>
-              </div>
-
-              {/* FRONT: MCD Context */}
-              <div style={{ 
-                fontSize: '2.2rem', 
-                color: '#374151', 
-                marginBottom: '40px',
-                direction: 'rtl',
-                fontFamily: 'Arial, sans-serif',
-                lineHeight: '1.6',
-                backgroundColor: '#f8f9fa',
-                padding: '30px',
-                borderRadius: '12px',
-                border: '2px solid #e9ecef',
-                minHeight: '120px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                {mcdContext}
-              </div>
-
-              {/* Instruction */}
-              <div style={{ 
-                fontSize: '16px', 
-                color: '#6b7280', 
-                marginBottom: '30px',
-                fontStyle: 'italic'
-              }}>
-                What word goes in the blank?
-              </div>
-
-              {/* BACK: Answer */}
-              {showAnswer && (
-                <div style={{ marginBottom: '40px' }}>
-                  <div style={{ 
-                    fontSize: '3.5rem', 
-                    fontWeight: '700', 
-                    color: '#8b5cf6',
-                    direction: 'rtl',
-                    marginBottom: '30px',
-                    fontFamily: 'Arial, sans-serif'
+  
+                {/* PRIMARY INFO: Meaning + Root + Sample Sentences */}
+                <div style={{ marginBottom: '25px' }}>
+                  {/* Meaning in Context */}
+                  <div style={{
+                    backgroundColor: '#fef3c7',
+                    border: '2px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    textAlign: 'center',
+                    marginBottom: '15px'
                   }}>
-                    {currentStudyCard.arabic_word}
+                    <div style={{ fontSize: '14px', color: '#92400e', fontWeight: '600', marginBottom: '8px' }}>
+                      📝 Meaning in Context
+                    </div>
+                    <div style={{ fontSize: '16px', color: '#78350f', fontWeight: '600' }}>
+                      {currentStudyCard.meaningInContext || currentStudyCard.english_meaning || 'No meaning available'}
+                    </div>
                   </div>
-
-                  {/* Empty boxes for future content */}
-                  {/* Translation Data */}
-                  <div style={{ marginBottom: '25px' }}>
-                    {/* Basic Meaning Box */}
+  
+                  {/* Root Connection */}
+                  {currentStudyCard.root && (
                     <div style={{
-                      backgroundColor: '#fef3c7',
-                      border: '2px solid #f59e0b',
+                      backgroundColor: '#f0fdf4',
+                      border: '2px solid #10b981',
                       borderRadius: '8px',
                       padding: '15px',
                       textAlign: 'center',
                       marginBottom: '15px'
                     }}>
-                      <div style={{ fontSize: '14px', color: '#92400e', fontWeight: '600', marginBottom: '8px' }}>
-                        📝 Meaning
+                      <div style={{ fontSize: '14px', color: '#059669', fontWeight: '600', marginBottom: '8px' }}>
+                        🌱 Root Connection
                       </div>
-                      <div style={{ fontSize: '16px', color: '#78350f', fontWeight: '600' }}>
-                        {currentStudyCard.english_meaning || 'No meaning available'}
-                        {currentStudyCard.part_of_speech && (
-                          <span style={{ fontSize: '14px', color: '#92400e', marginLeft: '8px' }}>
-                            ({currentStudyCard.part_of_speech})
-                          </span>
-                        )}
+                      <div style={{ fontSize: '14px', color: '#065f46', fontWeight: '600', marginBottom: '5px' }}>
+                        {currentStudyCard.root}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#059669', fontStyle: 'italic' }}>
+                        {currentStudyCard.rootConnection || 'Root connection analysis'}
                       </div>
                     </div>
-
-                    {/* Show More Details Button */}
-                    <div style={{ textAlign: 'center', marginBottom: '15px' }}>
-                      <button
-                        onClick={() => setShowMoreDetails(!showMoreDetails)}
-                        style={{
-                          backgroundColor: '#8b5cf6',
-                          color: 'white',
-                          padding: '8px 20px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {showMoreDetails ? '👆 Show Less' : '👇 Show More Details'}
-                      </button>
-                    </div>
-
-                    {/* Expanded Details */}
-                    {showMoreDetails && (
-                      <div style={{ display: 'grid', gap: '15px' }}>
-                        {/* Sample Sentence */}
-                        {currentStudyCard.sample_sentence && (
-                          <div style={{
-                            backgroundColor: '#f0fdf4',
-                            border: '2px solid #10b981',
-                            borderRadius: '8px',
-                            padding: '15px',
-                            textAlign: 'center'
-                          }}>
-                            <div style={{ fontSize: '14px', color: '#059669', fontWeight: '600', marginBottom: '8px' }}>
-                              📚 Sample Sentence
-                            </div>
-                            <div style={{ 
-                              fontSize: '16px', 
-                              color: '#065f46', 
-                              marginBottom: '8px',
-                              direction: 'rtl',
-                              fontFamily: 'Arial, sans-serif'
-                            }}>
-                              {currentStudyCard.sample_sentence}
-                            </div>
-                            {currentStudyCard.sample_translation && (
-                              <div style={{ fontSize: '14px', color: '#059669', fontStyle: 'italic' }}>
-                                "{currentStudyCard.sample_translation}"
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Audio Placeholder */}
-                        <div style={{
-                          backgroundColor: '#f0f9ff',
-                          border: '2px dashed #3b82f6',
-                          borderRadius: '8px',
-                          padding: '15px',
-                          textAlign: 'center'
+                  )}
+  
+                  {/* Sample Sentences */}
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {currentStudyCard.sampleSentence1 && (
+                      <div style={{
+                        backgroundColor: '#f0f9ff',
+                        border: '1px solid #3b82f6',
+                        borderRadius: '6px',
+                        padding: '12px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ 
+                          fontSize: '16px', 
+                          direction: 'rtl',
+                          fontFamily: 'Arial, sans-serif',
+                          marginBottom: '6px',
+                          color: '#1e40af'
                         }}>
-                          <div style={{ fontSize: '14px', color: '#2563eb', fontWeight: '600', marginBottom: '5px' }}>
-                            🎵 Audio
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#1e40af', fontStyle: 'italic' }}>
-                            (Coming soon - pronunciation audio)
-                          </div>
+                          {currentStudyCard.sampleSentence1}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#2563eb', fontStyle: 'italic' }}>
+                          {currentStudyCard.sampleTranslation1}
+                        </div>
+                      </div>
+                    )}
+  
+                    {currentStudyCard.sampleSentence2 && (
+                      <div style={{
+                        backgroundColor: '#fdf2f8',
+                        border: '1px solid #ec4899',
+                        borderRadius: '6px',
+                        padding: '12px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ 
+                          fontSize: '16px', 
+                          direction: 'rtl',
+                          fontFamily: 'Arial, sans-serif',
+                          marginBottom: '6px',
+                          color: '#be185d'
+                        }}>
+                          {currentStudyCard.sampleSentence2}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#ec4899', fontStyle: 'italic' }}>
+                          {currentStudyCard.sampleTranslation2}
                         </div>
                       </div>
                     )}
                   </div>
-                  
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    gap: '20px',
-                    fontSize: '14px',
-                    color: '#6b7280'
-                  }}>
-                    <span style={{
-                      backgroundColor: '#f0fdf4',
-                      color: '#059669',
-                      padding: '4px 8px',
-                      borderRadius: '4px'
-                    }}>
-                      📍 {formatTime(currentStudyCard.video_timestamp || 0)}
-                    </span>
-                    <span style={{
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                      padding: '4px 8px',
-                      borderRadius: '4px'
-                    }}>
-                      📊 Rep #{currentStudyCard.reps + 1}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Action buttons */}
-              {!showAnswer ? (
-                <button
-                  onClick={() => setShowAnswer(true)}
-                  style={{
-                    backgroundColor: '#8b5cf6',
-                    color: 'white',
-                    padding: '16px 40px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
-                  }}
-                >
-                  Show Answer
-                </button>
-              ) : (
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                  {[
-                    { rating: 1, label: 'Again', color: '#dc2626', desc: 'Didn\'t know' },
-                    { rating: 2, label: 'Hard', color: '#ea580c', desc: 'Difficult' },
-                    { rating: 3, label: 'Good', color: '#059669', desc: 'Knew it' },
-                    { rating: 4, label: 'Easy', color: '#2563eb', desc: 'Too easy' }
-                  ].map(button => (
+  
+                  {/* Show More Details Button */}
+                  <div style={{ textAlign: 'center', marginTop: '20px' }}>
                     <button
-                      key={button.rating}
-                      onClick={() => handleStudyAnswer(button.rating)}
+                      onClick={() => setShowMoreDetails(!showMoreDetails)}
                       style={{
-                        backgroundColor: button.color,
+                        backgroundColor: '#8b5cf6',
                         color: 'white',
-                        padding: '12px 20px',
-                        borderRadius: '8px',
+                        padding: '8px 20px',
+                        borderRadius: '6px',
                         border: 'none',
                         fontSize: '14px',
                         fontWeight: '600',
-                        cursor: 'pointer',
-                        minWidth: '90px',
-                        textAlign: 'center'
+                        cursor: 'pointer'
                       }}
-                      title={button.desc}
                     >
-                      <div>{button.label}</div>
-                      <div style={{ fontSize: '10px', opacity: '0.8' }}>{button.desc}</div>
+                      {showMoreDetails ? '👆 Show Less' : '👇 Show Grammar & Morphology'}
                     </button>
-                  ))}
+                  </div>
+  
+                  {/* EXPANDABLE SECTION: Grammar & Morphology */}
+                  {showMoreDetails && (
+                    <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
+                      {/* Grammar Explanation */}
+                      {currentStudyCard.grammarExplanation && (
+                        <div style={{
+                          backgroundColor: '#f3f0ff',
+                          border: '2px solid #8b5cf6',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          textAlign: 'left'
+                        }}>
+                          <div style={{ fontSize: '14px', color: '#8b5cf6', fontWeight: '600', marginBottom: '8px' }}>
+                            📚 Grammar (How It Works)
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#581c87', lineHeight: '1.5' }}>
+                            {currentStudyCard.grammarExplanation}
+                          </div>
+                          {currentStudyCard.grammarSample && (
+                            <div style={{ 
+                              marginTop: '8px', 
+                              padding: '8px', 
+                              backgroundColor: '#faf5ff', 
+                              borderRadius: '4px',
+                              direction: 'rtl',
+                              fontFamily: 'Arial, sans-serif'
+                            }}>
+                              {currentStudyCard.grammarSample}
+                            </div>
+                          )}
+                        </div>
+                      )}
+  
+                      {/* Morphology */}
+                      {currentStudyCard.morphology && (
+                        <div style={{
+                          backgroundColor: '#fff7ed',
+                          border: '2px solid #ea580c',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          textAlign: 'left'
+                        }}>
+                          <div style={{ fontSize: '14px', color: '#ea580c', fontWeight: '600', marginBottom: '8px' }}>
+                            🔧 Word Construction
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#9a3412', lineHeight: '1.5' }}>
+                            {currentStudyCard.morphology}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+                
+                {/* Metadata */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  gap: '20px',
+                  fontSize: '14px',
+                  color: '#6b7280'
+                }}>
+                  <span style={{
+                    backgroundColor: '#f0fdf4',
+                    color: '#059669',
+                    padding: '4px 8px',
+                    borderRadius: '4px'
+                  }}>
+                    📍 {formatTime(currentStudyCard.video_timestamp || 0)}
+                  </span>
+                  <span style={{
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    padding: '4px 8px',
+                    borderRadius: '4px'
+                  }}>
+                    📊 Rep #{currentStudyCard.reps + 1}
+                  </span>
+                </div>
+              </div>
+            )}
+  
+            {/* Action buttons - same as before */}
+            {!showAnswer ? (
+              <button
+                onClick={() => setShowAnswer(true)}
+                style={{
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  padding: '16px 40px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                }}
+              >
+                Show Answer
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                {[
+                  { rating: 1, label: 'Again', color: '#dc2626', desc: 'Didn\'t know' },
+                  { rating: 2, label: 'Hard', color: '#ea580c', desc: 'Difficult' },
+                  { rating: 3, label: 'Good', color: '#059669', desc: 'Knew it' },
+                  { rating: 4, label: 'Easy', color: '#2563eb', desc: 'Too easy' }
+                ].map(button => (
+                  <button
+                    key={button.rating}
+                    onClick={() => handleStudyAnswer(button.rating)}
+                    style={{
+                      backgroundColor: button.color,
+                      color: 'white',
+                      padding: '12px 20px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      minWidth: '90px',
+                      textAlign: 'center'
+                    }}
+                    title={button.desc}
+                  >
+                    <div>{button.label}</div>
+                    <div style={{ fontSize: '10px', opacity: '0.8' }}>{button.desc}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      );
-    };
-
+      </div>
+    );
+  };
+     
   // Add this function to your MainApp component (after renderMyCardsTab)
 
   const renderReadTab = () => (
