@@ -3468,122 +3468,154 @@ function MainApp({ user }: { user: any }) {
     };
   // 4. ENHANCED STUDY CARD DISPLAY (Updated renderStudyInterface)
   const renderEnhancedStudyInterface = () => {
-    const mcdContext = createMCDContext(currentStudyCard.context, currentStudyCard.arabic_word);
-  
-    return (
-      <div>
-        {/* Back button and header - same as before */}
-        
-        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-          <div style={{ 
-            backgroundColor: 'white', 
-            padding: '40px', 
-            borderRadius: '16px', 
-            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
-            textAlign: 'center'
-          }}>
-            
-            {/* Header with progress - same as before */}
-            <div style={{ marginBottom: '40px' }}>
-                {/* Small Surah Info Above */}
-                {currentStudyCard.surah_number && (
-                  <div style={{
-                    fontSize: '11px',
-                    color: '#6b7280',
-                    marginBottom: '8px',
-                    fontWeight: '500'
-                  }}>
-                    Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
-                  </div>
-            {/* FRONT: MCD Context */}
+      const mcdContext = createMCDContext(currentStudyCard.context, currentStudyCard.arabic_word);
+    
+      return (
+        <div>
+          {/* Back button and header - same as before */}
+          <div style={{ marginBottom: '20px' }}>
+            <button
+              onClick={() => {
+                setIsStudying(false);
+                setCurrentStudyCard(null);
+                setStudyCards([]);
+                setStudyCardIndex(0);
+                setShowAnswer(false);
+              }}
+              style={{
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              ← Back to My Cards
+            </button>
+          </div>
+    
+          <div style={{ maxWidth: '700px', margin: '0 auto' }}>
             <div style={{ 
-              fontSize: '2.2rem', 
-              color: '#374151', 
-              marginBottom: '40px',
-              direction: 'rtl',
-              fontFamily: 'Arial, sans-serif',
-              lineHeight: '1.6',
-              backgroundColor: '#f8f9fa',
-              padding: '30px',
-              borderRadius: '12px',
-              border: '2px solid #e9ecef',
-              minHeight: '120px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+              backgroundColor: 'white', 
+              padding: '40px', 
+              borderRadius: '16px', 
+              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)',
+              textAlign: 'center'
             }}>
-              {mcdContext}
-            </div>
-  
-            <div style={{ 
-              fontSize: '16px', 
-              color: '#6b7280', 
-              marginBottom: '30px',
-              fontStyle: 'italic'
-            }}>
-              What word goes in the blank?
-            </div>
-  
-            {/* ENHANCED ANSWER SECTION */}
-            {showAnswer && (
-                )}
-                
-                {/* Arabic Word */}
-                <div style={{ 
-                  fontSize: '3.5rem', 
-                  fontWeight: '700', 
-                  color: '#8b5cf6',
-                  direction: 'rtl',
-                  marginBottom: '30px',
-                  fontFamily: 'Arial, sans-serif'
+              
+              {/* SMALL SURAH INFO AT TOP */}
+              {currentStudyCard.surah_number && (
+                <div style={{
+                  fontSize: '10px',
+                  color: '#9ca3af',
+                  marginBottom: '16px',
+                  fontWeight: '400'
                 }}>
-                  {currentStudyCard.arabic_word}
+                  Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
                 </div>
-  
-                {/* PRIMARY INFO: Meaning + Root + Sample Sentences */}
-                <div style={{ marginBottom: '25px' }}>
-                  {/* Meaning in Context */}
-                  <div style={{
-                    backgroundColor: '#fef3c7',
-                    border: '2px solid #f59e0b',
-                    borderRadius: '8px',
-                    padding: '15px',
-                    textAlign: 'center',
-                    marginBottom: '15px'
+              )}
+              
+              {/* FRONT: MCD Context */}
+              <div style={{ 
+                fontSize: '2.2rem', 
+                color: '#374151', 
+                marginBottom: '40px',
+                direction: 'rtl',
+                fontFamily: 'Arial, sans-serif',
+                lineHeight: '1.6',
+                backgroundColor: '#f8f9fa',
+                padding: '30px',
+                borderRadius: '12px',
+                border: '2px solid #e9ecef',
+                minHeight: '120px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {mcdContext}
+              </div>
+    
+              <div style={{ 
+                fontSize: '16px', 
+                color: '#6b7280', 
+                marginBottom: '30px',
+                fontStyle: 'italic'
+              }}>
+                What word goes in the blank?
+              </div>
+    
+              {/* ENHANCED ANSWER SECTION */}
+              {showAnswer && (
+                <div style={{ marginBottom: '40px' }}>
+                  {/* Arabic Word */}
+                  <div style={{ 
+                    fontSize: '3.5rem', 
+                    fontWeight: '700', 
+                    color: '#8b5cf6',
+                    direction: 'rtl',
+                    marginBottom: '30px',
+                    fontFamily: 'Arial, sans-serif'
                   }}>
-                    <div style={{ fontSize: '14px', color: '#92400e', fontWeight: '600', marginBottom: '8px' }}>
-                      📝 Meaning in Context
-                    </div>
-                    <div style={{ fontSize: '16px', color: '#78350f', fontWeight: '600' }}>
-                      {currentStudyCard.meaningincontext || currentStudyCard.english_meaning || 'No meaning available'}
-                    </div>
+                    {currentStudyCard.arabic_word}
                   </div>
-  
-                  {/* Root Connection */}
-                  {currentStudyCard.root && (
+    
+                  {/* PRIMARY INFO: Meaning + Root + Sample Sentences */}
+                  <div style={{ marginBottom: '25px' }}>
+                    {/* Meaning in Context */}
                     <div style={{
-                      backgroundColor: '#f0fdf4',
-                      border: '2px solid #10b981',
+                      backgroundColor: '#fef3c7',
+                      border: '2px solid #f59e0b',
                       borderRadius: '8px',
                       padding: '15px',
                       textAlign: 'center',
                       marginBottom: '15px'
                     }}>
-                      <div style={{ fontSize: '14px', color: '#059669', fontWeight: '600', marginBottom: '8px' }}>
-                        🌱 Root Connection
+                      <div style={{ fontSize: '14px', color: '#92400e', fontWeight: '600', marginBottom: '8px' }}>
+                        📝 Meaning in Context
                       </div>
-                      <div style={{ fontSize: '14px', color: '#065f46', fontWeight: '600', marginBottom: '5px' }}>
-                        {currentStudyCard.root}
-                      </div>
-                      <div style={{ fontSize: '13px', color: '#059669', fontStyle: 'italic' }}>
-                        {currentStudyCard.rootconnection || 'Root connection analysis'}
+                      <div style={{ fontSize: '16px', color: '#78350f', fontWeight: '600' }}>
+                        {currentStudyCard.meaningincontext || currentStudyCard.english_meaning || 'No meaning available'}
                       </div>
                     </div>
-                  )}
-  
-                  {/* Sample Sentences */}
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    {currentStudyCard.sampleSentence1 && (
+    
+                    {/* Root Connection */}
+                    {currentStudyCard.root && (
+                      <div style={{
+                        backgroundColor: '#f0fdf4',
+                        border: '2px solid #10b981',
+                        borderRadius: '8px',
+                        padding: '15px',
+                        textAlign: 'center',
+                        marginBottom: '15px'
+                      }}>
+                        <div style={{ fontSize: '14px', color: '#059669', fontWeight: '600', marginBottom: '8px' }}>
+                          🌱 Root Connection
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#065f46', fontWeight: '600', marginBottom: '5px' }}>
+                          {currentStudyCard.root}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#059669', fontStyle: 'italic' }}>
+                          {currentStudyCard.rootconnection || 'Root connection analysis'}
+                        </div>
+                      </div>
+                    )}
+    
+                    {/* Sample Sentences - CORRECTED FIELD NAMES */}
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      
+                      {/* DEBUG INFO - REMOVE AFTER TESTING */}
+                      <div style={{ fontSize: '10px', color: 'red', textAlign: 'left', marginBottom: '10px' }}>
+                        DEBUG: samplesentence1 = "{currentStudyCard.samplesentence1}"<br/>
+                        DEBUG: sampletranslation1 = "{currentStudyCard.sampletranslation1}"
+                      </div>
+    
+                      {/* Sample 1 - ALWAYS SHOW FOR TESTING */}
                       <div style={{
                         backgroundColor: '#f0f9ff',
                         border: '1px solid #3b82f6',
@@ -3598,15 +3630,14 @@ function MainApp({ user }: { user: any }) {
                           marginBottom: '6px',
                           color: '#1e40af'
                         }}>
-                          {currentStudyCard.samplesentence1}
+                          {currentStudyCard.samplesentence1 || 'NO SAMPLE 1'}
                         </div>
                         <div style={{ fontSize: '13px', color: '#2563eb', fontStyle: 'italic' }}>
-                          {currentStudyCard.sampletranslation1}
+                          {currentStudyCard.sampletranslation1 || 'NO TRANSLATION 1'}
                         </div>
                       </div>
-                    )}
-  
-                    {currentStudyCard.sampleSentence2 && (
+    
+                      {/* Sample 2 - ALWAYS SHOW FOR TESTING */}
                       <div style={{
                         backgroundColor: '#fdf2f8',
                         border: '1px solid #ec4899',
@@ -3621,170 +3652,169 @@ function MainApp({ user }: { user: any }) {
                           marginBottom: '6px',
                           color: '#be185d'
                         }}>
-                         {currentStudyCard.samplesentence2}
+                          {currentStudyCard.samplesentence2 || 'NO SAMPLE 2'}
                         </div>
                         <div style={{ fontSize: '13px', color: '#ec4899', fontStyle: 'italic' }}>
-                          {currentStudyCard.sampletranslation2}
+                          {currentStudyCard.sampletranslation2 || 'NO TRANSLATION 2'}
                         </div>
+                      </div>
+                    </div>
+    
+                    {/* Show More Details Button */}
+                    <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                      <button
+                        onClick={() => setShowMoreDetails(!showMoreDetails)}
+                        style={{
+                          backgroundColor: '#8b5cf6',
+                          color: 'white',
+                          padding: '8px 20px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {showMoreDetails ? '👆 Show Less' : '👇 Show Grammar & Morphology'}
+                      </button>
+                    </div>
+    
+                    {/* EXPANDABLE SECTION: Grammar & Morphology */}
+                    {showMoreDetails && (
+                      <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
+                        {/* Grammar Explanation - FIXED FIELD REFERENCE */}
+                        {currentStudyCard.grammarexplanation && (
+                          <div style={{
+                            backgroundColor: '#f3f0ff',
+                            border: '2px solid #8b5cf6',
+                            borderRadius: '8px',
+                            padding: '15px',
+                            textAlign: 'left'
+                          }}>
+                            <div style={{ fontSize: '14px', color: '#8b5cf6', fontWeight: '600', marginBottom: '8px' }}>
+                              📚 Grammar (How It Works)
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#581c87', lineHeight: '1.5' }}>
+                              {currentStudyCard.grammarexplanation}
+                            </div>
+                            {currentStudyCard.grammarsample && (
+                              <div style={{ 
+                                marginTop: '8px', 
+                                padding: '8px', 
+                                backgroundColor: '#faf5ff', 
+                                borderRadius: '4px',
+                                direction: 'rtl',
+                                fontFamily: 'Arial, sans-serif'
+                              }}>
+                                {currentStudyCard.grammarsample}
+                              </div>
+                            )}
+                          </div>
+                        )}
+    
+                        {/* Morphology */}
+                        {currentStudyCard.morphology && (
+                          <div style={{
+                            backgroundColor: '#fff7ed',
+                            border: '2px solid #ea580c',
+                            borderRadius: '8px',
+                            padding: '15px',
+                            textAlign: 'left'
+                          }}>
+                            <div style={{ fontSize: '14px', color: '#ea580c', fontWeight: '600', marginBottom: '8px' }}>
+                              🔧 Word Construction
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#9a3412', lineHeight: '1.5' }}>
+                              {currentStudyCard.morphology}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-  
-                  {/* Show More Details Button */}
-                  <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                  
+                  {/* Metadata */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    gap: '20px',
+                    fontSize: '14px',
+                    color: '#6b7280'
+                  }}>
+                    <span style={{
+                      backgroundColor: '#f0fdf4',
+                      color: '#059669',
+                      padding: '4px 8px',
+                      borderRadius: '4px'
+                    }}>
+                      📍 {formatTime(currentStudyCard.video_timestamp || 0)}
+                    </span>
+                    <span style={{
+                      backgroundColor: '#fef3c7',
+                      color: '#92400e',
+                      padding: '4px 8px',
+                      borderRadius: '4px'
+                    }}>
+                      📊 Rep #{currentStudyCard.reps + 1}
+                    </span>
+                  </div>
+                </div>
+              )}
+    
+              {/* Action buttons */}
+              {!showAnswer ? (
+                <button
+                  onClick={() => setShowAnswer(true)}
+                  style={{
+                    backgroundColor: '#8b5cf6',
+                    color: 'white',
+                    padding: '16px 40px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                  }}
+                >
+                  Show Answer
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                  {[
+                    { rating: 1, label: 'Again', color: '#dc2626', desc: 'Didn\'t know' },
+                    { rating: 2, label: 'Hard', color: '#ea580c', desc: 'Difficult' },
+                    { rating: 3, label: 'Good', color: '#059669', desc: 'Knew it' },
+                    { rating: 4, label: 'Easy', color: '#2563eb', desc: 'Too easy' }
+                  ].map(button => (
                     <button
-                      onClick={() => setShowMoreDetails(!showMoreDetails)}
+                      key={button.rating}
+                      onClick={() => handleStudyAnswer(button.rating)}
                       style={{
-                        backgroundColor: '#8b5cf6',
+                        backgroundColor: button.color,
                         color: 'white',
-                        padding: '8px 20px',
-                        borderRadius: '6px',
+                        padding: '12px 20px',
+                        borderRadius: '8px',
                         border: 'none',
                         fontSize: '14px',
                         fontWeight: '600',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        minWidth: '90px',
+                        textAlign: 'center'
                       }}
+                      title={button.desc}
                     >
-                      {showMoreDetails ? '👆 Show Less' : '👇 Show Grammar & Morphology'}
+                      <div>{button.label}</div>
+                      <div style={{ fontSize: '10px', opacity: '0.8' }}>{button.desc}</div>
                     </button>
-                  </div>
-  
-                  {/* EXPANDABLE SECTION: Grammar & Morphology */}
-                  {showMoreDetails && (
-                    <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
-                      {/* Grammar Explanation */}
-                      {currentStudyCard.grammarexplanation && (
-                        <div style={{
-                          backgroundColor: '#f3f0ff',
-                          border: '2px solid #8b5cf6',
-                          borderRadius: '8px',
-                          padding: '15px',
-                          textAlign: 'left'
-                        }}>
-                          <div style={{ fontSize: '14px', color: '#8b5cf6', fontWeight: '600', marginBottom: '8px' }}>
-                            📚 Grammar (How It Works)
-                          </div>
-                          <div style={{ fontSize: '14px', color: '#581c87', lineHeight: '1.5' }}>
-                            {currentStudyCard.sampletranslation2}
-                          </div>
-                          {currentStudyCard.grammarSample && (
-                            <div style={{ 
-                              marginTop: '8px', 
-                              padding: '8px', 
-                              backgroundColor: '#faf5ff', 
-                              borderRadius: '4px',
-                              direction: 'rtl',
-                              fontFamily: 'Arial, sans-serif'
-                            }}>
-                              {currentStudyCard.grammarsample}
-                            </div>
-                          )}
-                        </div>
-                      )}
-  
-                      {/* Morphology */}
-                      {currentStudyCard.morphology && (
-                        <div style={{
-                          backgroundColor: '#fff7ed',
-                          border: '2px solid #ea580c',
-                          borderRadius: '8px',
-                          padding: '15px',
-                          textAlign: 'left'
-                        }}>
-                          <div style={{ fontSize: '14px', color: '#ea580c', fontWeight: '600', marginBottom: '8px' }}>
-                            🔧 Word Construction
-                          </div>
-                          <div style={{ fontSize: '14px', color: '#9a3412', lineHeight: '1.5' }}>
-                            {currentStudyCard.morphology}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  ))}
                 </div>
-                
-                {/* Metadata */}
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  gap: '20px',
-                  fontSize: '14px',
-                  color: '#6b7280'
-                }}>
-                  <span style={{
-                    backgroundColor: '#f0fdf4',
-                    color: '#059669',
-                    padding: '4px 8px',
-                    borderRadius: '4px'
-                  }}>
-                    📍 {formatTime(currentStudyCard.video_timestamp || 0)}
-                  </span>
-                  <span style={{
-                    backgroundColor: '#fef3c7',
-                    color: '#92400e',
-                    padding: '4px 8px',
-                    borderRadius: '4px'
-                  }}>
-                    📊 Rep #{currentStudyCard.reps + 1}
-                  </span>
-                </div>
-              </div>
-            )}
-  
-            {/* Action buttons */}
-            {!showAnswer ? (
-              <button
-                onClick={() => setShowAnswer(true)}
-                style={{
-                  backgroundColor: '#8b5cf6',
-                  color: 'white',
-                  padding: '16px 40px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
-                }}
-              >
-                Show Answer
-              </button>
-            ) : (
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                {[
-                  { rating: 1, label: 'Again', color: '#dc2626', desc: 'Didn\'t know' },
-                  { rating: 2, label: 'Hard', color: '#ea580c', desc: 'Difficult' },
-                  { rating: 3, label: 'Good', color: '#059669', desc: 'Knew it' },
-                  { rating: 4, label: 'Easy', color: '#2563eb', desc: 'Too easy' }
-                ].map(button => (
-                  <button
-                    key={button.rating}
-                    onClick={() => handleStudyAnswer(button.rating)}
-                    style={{
-                      backgroundColor: button.color,
-                      color: 'white',
-                      padding: '12px 20px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      minWidth: '90px',
-                      textAlign: 'center'
-                    }}
-                    title={button.desc}
-                  >
-                    <div>{button.label}</div>
-                    <div style={{ fontSize: '10px', opacity: '0.8' }}>{button.desc}</div>
-                  </button>
-                ))}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    );
-  };
+      );
+    };
      
   // Add this function to your MainApp component (after renderMyCardsTab)
 
