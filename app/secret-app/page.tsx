@@ -2149,7 +2149,7 @@ function MainApp({ user }: { user: any }) {
   // STEP 6: Add these render functions to your MainApp component:
 
   // Deck list with integrated Manage button
-  const renderDeckList = () => (
+  const renderDeckList = () => {
     // NEW: Progress stats section
     const stats = calculateProgressStats();
     
@@ -2424,7 +2424,8 @@ function MainApp({ user }: { user: any }) {
         </div>
       )}
     </div>
-  );
+   );
+  };
   const renderSegmentBasedTranscript = () => {
     if (!transcript.length) return null;
     const currentData = getCurrentSegment();
