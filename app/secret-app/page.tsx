@@ -1321,43 +1321,34 @@ function MainApp({ user }: { user: any }) {
     return contextWords.map(w => w.text).join(' ');
   };
   const createMCDContext = (context, targetWord) => {
-      if (!context || !targetWord) return context;
-      
-      // REMOVE SURAH INFO from context before processing
-      let cleanContext = context;
-      
-      // Remove "Surah [Name] ([Number]), Verse [Number]: " from the beginning
-      cleanContext = cleanContext.replace(/^Surah [^:]+:\s*/, '');
-      
-      const cleanTarget = cleanArabicWord(targetWord).trim();
-      if (!cleanTarget) return cleanContext;
-      
-      // Create regex for the word
-      const escapedWord = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
-      const patterns = [
-        new RegExp(`\\b${escapedWord}\\b`, 'gi'),
-        new RegExp(`${escapedWord}`, 'gi'),
-        new RegExp(`\\s${escapedWord}\\s`, 'gi'),
-        new RegExp(`${escapedWord}[\\u064B-\\u065F]*`, 'gi')
-      ];
-      
-      let result = cleanContext;
-      
-      for (const pattern of patterns) {
-        const testResult = result.replace(pattern, ' [...] ');
-        if (testResult !== result) {
-          result = testResult;
-          break;
+        if (!context || !targetWord) return context;
+        
+        const cleanTarget = cleanArabicWord(targetWord).trim();
+        if (!cleanTarget) return context;
+        
+        // Create a more aggressive regex that catches the word with various Arabic diacritics
+        // This handles the word with or without harakat (diacritics)
+        const escapedWord = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Try multiple patterns to catch the word
+        const patterns = [
+            new RegExp(`\\b${escapedWord}\\b`, 'gi'), // Exact match with word boundaries
+            new RegExp(`${escapedWord}`, 'gi'), // Just the word without boundaries
+            new RegExp(`\\s${escapedWord}\\s`, 'gi'), // Word with spaces
+            new RegExp(`${escapedWord}[\\u064B-\\u065F]*`, 'gi') // Word with potential diacritics
+        ];
+        
+        let result = context;
+        
+        // Try each pattern until one works
+        for (const pattern of patterns) {
+            const testResult = result.replace(pattern, ' [...] ');
+            if (testResult !== result) {
+            result = testResult;
+            break;
+            }
         }
-      }
-      
-      result = result.replace(/\s+\[\.\.\.\]\s+/g, ' [...] ');
-      result = result.replace(/^\s+|\s+$/g, '');
-      
-      return result;
-    };
-            
+        
         // Clean up extra spaces around the deletion
         result = result.replace(/\s+\[\.\.\.\]\s+/g, ' [...] ');
         result = result.replace(/^\s+|\s+$/g, ''); // Trim
@@ -3473,33 +3464,7 @@ function MainApp({ user }: { user: any }) {
     return (
       <div>
         {/* Back button and header - same as before */}
-        <div style={{ marginBottom: '20px' }}>
-          <button
-            onClick={() => {
-              setIsStudying(false);
-              setCurrentStudyCard(null);
-              setStudyCards([]);
-              setStudyCardIndex(0);
-              setShowAnswer(false);
-            }}
-            style={{
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-          >
-            ← Back to My Cards
-          </button>
-        </div>
-  
+        
         <div style={{ maxWidth: '700px', margin: '0 auto' }}>
           <div style={{ 
             backgroundColor: 'white', 
@@ -3509,17 +3474,7 @@ function MainApp({ user }: { user: any }) {
             textAlign: 'center'
           }}>
             
-            {/* SMALL SURAH INFO AT TOP */}
-            {currentStudyCard.surah_number && (
-              <div style={{
-                fontSize: '10px',
-                color: '#9ca3af',
-                marginBottom: '16px',
-                fontWeight: '400'
-              }}>
-                Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
-              </div>
-            )}
+            {/* Header with progress - same as before */}
             
             {/* FRONT: MCD Context */}
             <div style={{ 
@@ -3553,6 +3508,18 @@ function MainApp({ user }: { user: any }) {
             {/* ENHANCED ANSWER SECTION */}
             {showAnswer && (
               <div style={{ marginBottom: '40px' }}>
+                {/* Small Surah Info Above */}
+                {currentStudyCard.surah_number && (
+                  <div style={{
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    marginBottom: '8px',
+                    fontWeight: '500'
+                  }}>
+                    Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
+                  </div>
+                )}
+                
                 {/* Arabic Word */}
                 <div style={{ 
                   fontSize: '3.5rem', 
@@ -3606,58 +3573,53 @@ function MainApp({ user }: { user: any }) {
                     </div>
                   )}
   
-                  {/* Sample Sentences - CORRECTED FIELD NAMES */}
+                  {/* Sample Sentences */}
                   <div style={{ display: 'grid', gap: '10px' }}>
-                    
-                    {/* DEBUG INFO - REMOVE AFTER TESTING */}
-                    <div style={{ fontSize: '10px', color: 'red', textAlign: 'left', marginBottom: '10px' }}>
-                      DEBUG: samplesentence1 = "{currentStudyCard.samplesentence1}"<br/>
-                      DEBUG: sampletranslation1 = "{currentStudyCard.sampletranslation1}"
-                    </div>
-  
-                    {/* Sample 1 - ALWAYS SHOW FOR TESTING */}
-                    <div style={{
-                      backgroundColor: '#f0f9ff',
-                      border: '1px solid #3b82f6',
-                      borderRadius: '6px',
-                      padding: '12px',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{ 
-                        fontSize: '16px', 
-                        direction: 'rtl',
-                        fontFamily: 'Arial, sans-serif',
-                        marginBottom: '6px',
-                        color: '#1e40af'
+                    {currentStudyCard.sampleSentence1 && (
+                      <div style={{
+                        backgroundColor: '#f0f9ff',
+                        border: '1px solid #3b82f6',
+                        borderRadius: '6px',
+                        padding: '12px',
+                        textAlign: 'center'
                       }}>
-                        {currentStudyCard.samplesentence1 || 'NO SAMPLE 1'}
+                        <div style={{ 
+                          fontSize: '16px', 
+                          direction: 'rtl',
+                          fontFamily: 'Arial, sans-serif',
+                          marginBottom: '6px',
+                          color: '#1e40af'
+                        }}>
+                          {currentStudyCard.samplesentence1}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#2563eb', fontStyle: 'italic' }}>
+                          {currentStudyCard.sampletranslation1}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '13px', color: '#2563eb', fontStyle: 'italic' }}>
-                        {currentStudyCard.sampletranslation1 || 'NO TRANSLATION 1'}
-                      </div>
-                    </div>
+                    )}
   
-                    {/* Sample 2 - ALWAYS SHOW FOR TESTING */}
-                    <div style={{
-                      backgroundColor: '#fdf2f8',
-                      border: '1px solid #ec4899',
-                      borderRadius: '6px',
-                      padding: '12px',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{ 
-                        fontSize: '16px', 
-                        direction: 'rtl',
-                        fontFamily: 'Arial, sans-serif',
-                        marginBottom: '6px',
-                        color: '#be185d'
+                    {currentStudyCard.sampleSentence2 && (
+                      <div style={{
+                        backgroundColor: '#fdf2f8',
+                        border: '1px solid #ec4899',
+                        borderRadius: '6px',
+                        padding: '12px',
+                        textAlign: 'center'
                       }}>
-                        {currentStudyCard.samplesentence2 || 'NO SAMPLE 2'}
+                        <div style={{ 
+                          fontSize: '16px', 
+                          direction: 'rtl',
+                          fontFamily: 'Arial, sans-serif',
+                          marginBottom: '6px',
+                          color: '#be185d'
+                        }}>
+                         {currentStudyCard.samplesentence2}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#ec4899', fontStyle: 'italic' }}>
+                          {currentStudyCard.sampletranslation2}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '13px', color: '#ec4899', fontStyle: 'italic' }}>
-                        {currentStudyCard.sampletranslation2 || 'NO TRANSLATION 2'}
-                      </div>
-                    </div>
+                    )}
                   </div>
   
                   {/* Show More Details Button */}
@@ -3682,7 +3644,7 @@ function MainApp({ user }: { user: any }) {
                   {/* EXPANDABLE SECTION: Grammar & Morphology */}
                   {showMoreDetails && (
                     <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
-                      {/* Grammar Explanation - FIXED FIELD REFERENCE */}
+                      {/* Grammar Explanation */}
                       {currentStudyCard.grammarexplanation && (
                         <div style={{
                           backgroundColor: '#f3f0ff',
@@ -3695,9 +3657,9 @@ function MainApp({ user }: { user: any }) {
                             📚 Grammar (How It Works)
                           </div>
                           <div style={{ fontSize: '14px', color: '#581c87', lineHeight: '1.5' }}>
-                            {currentStudyCard.grammarexplanation}
+                            {currentStudyCard.sampletranslation2}
                           </div>
-                          {currentStudyCard.grammarsample && (
+                          {currentStudyCard.grammarSample && (
                             <div style={{ 
                               marginTop: '8px', 
                               padding: '8px', 
@@ -4849,7 +4811,7 @@ function MainApp({ user }: { user: any }) {
       </div>
     </div>
   );
- 
+}
 
 // Root Component with Authentication
 function SecretApp() {
