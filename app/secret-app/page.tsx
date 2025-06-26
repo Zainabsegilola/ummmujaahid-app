@@ -3506,30 +3506,31 @@ function MainApp({ user }: { user: any }) {
             </div>
   
             {/* ENHANCED ANSWER SECTION */}
-            {/* Small Surah Info Above */}
-            {currentStudyCard.surah_number && (
-              <div style={{
-                fontSize: '11px',
-                color: '#6b7280',
-                marginBottom: '8px',
-                fontWeight: '500'
-              }}>
-                Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
-              </div>
-            )}
-            
-            {/* Arabic Word */}
-            <div style={{ 
-              fontSize: '3.5rem', 
-              fontWeight: '700', 
-              color: '#8b5cf6',
-              direction: 'rtl',
-              marginBottom: '30px',
-              fontFamily: 'Arial, sans-serif'
-            }}>
-              {currentStudyCard.arabic_word}
-            </div>
+            {showAnswer && (
+              <div style={{ marginBottom: '40px' }}>
+                {/* Small Surah Info Above */}
+                {currentStudyCard.surah_number && (
+                  <div style={{
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    marginBottom: '8px',
+                    fontWeight: '500'
+                  }}>
+                    Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
+                  </div>
+                )}
                 
+                {/* Arabic Word */}
+                <div style={{ 
+                  fontSize: '3.5rem', 
+                  fontWeight: '700', 
+                  color: '#8b5cf6',
+                  direction: 'rtl',
+                  marginBottom: '30px',
+                  fontFamily: 'Arial, sans-serif'
+                }}>
+                  {currentStudyCard.arabic_word}
+                </div>
   
                 {/* PRIMARY INFO: Meaning + Root + Sample Sentences */}
                 <div style={{ marginBottom: '25px' }}>
@@ -3722,7 +3723,7 @@ function MainApp({ user }: { user: any }) {
               </div>
             )}
   
-            {/* Action buttons - same as before */}
+            {/* Action buttons */}
             {!showAnswer ? (
               <button
                 onClick={() => setShowAnswer(true)}
