@@ -3451,7 +3451,7 @@ function MainApp({ user }: { user: any }) {
       
       // If studying, show study interface
       if (isStudying && currentStudyCard) {
-        return renderStudyInterface();
+        return renderEnhancedStudyInterface(); // ← New function name
       }
 
       // Otherwise show the deck list
