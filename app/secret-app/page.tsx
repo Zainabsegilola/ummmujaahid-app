@@ -3481,8 +3481,62 @@ function MainApp({ user }: { user: any }) {
   
     return (
       <div>
-        {/* Back button and header - same as before */}
-        
+        {/* Study Interface Back Button and Header */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '24px',
+          padding: '16px 0'
+        }}>
+          <button
+            onClick={() => {
+              setIsStudying(false);
+              setCurrentStudyCard(null);
+              setStudyCards([]);
+              setStudyCardIndex(0);
+              setShowAnswer(false);
+              setShowMoreDetails(false);
+              setStudyDeck(null);
+            }}
+            style={{
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              padding: '12px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            ← Back to My Cards
+          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ 
+              fontSize: '14px', 
+              color: '#6b7280',
+              fontWeight: '500'
+            }}>
+              {studyDeck?.name || 'Study Session'}
+            </div>
+            <div style={{ 
+              backgroundColor: '#8b5cf6', 
+              color: 'white', 
+              padding: '6px 12px', 
+              borderRadius: '20px', 
+              fontSize: '14px',
+              fontWeight: '600'
+            }}>
+              {studyCardIndex + 1} / {studyCards.length}
+            </div>
+          </div>
+        </div>
+        {/*  header - same as before */}
         <div style={{ maxWidth: '700px', margin: '0 auto' }}>
           <div style={{ 
             backgroundColor: 'white', 
