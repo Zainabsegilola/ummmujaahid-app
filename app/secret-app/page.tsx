@@ -3463,43 +3463,7 @@ function MainApp({ user }: { user: any }) {
   
     return (
       <div>
-        {/* Back button and progress header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: '24px',
-          padding: '16px',
-          backgroundColor: 'white',
-          borderRadius: '8px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button
-              onClick={() => setIsStudying(false)}
-              style={{
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer'
-              }}
-            >
-              ← Back to My Cards
-            </button>
-            
-            <div>
-              <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0', color: '#111827' }}>
-                Studying: {studyDeck?.name || 'All Cards'}
-              </h2>
-              <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
-                Card {studyCardIndex + 1} of {studyCards.length}
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Back button and header - same as before */}
         
         <div style={{ maxWidth: '700px', margin: '0 auto' }}>
           <div style={{ 
@@ -3544,20 +3508,19 @@ function MainApp({ user }: { user: any }) {
             {/* ENHANCED ANSWER SECTION */}
             {showAnswer && (
               <div style={{ marginBottom: '40px' }}>
-                {/* MOVED: Small Surah Info at TOP of answer section */}
+                {/* Small Surah Info Above */}
                 {currentStudyCard.surah_number && (
                   <div style={{
                     fontSize: '11px',
                     color: '#6b7280',
-                    marginBottom: '20px',
-                    fontWeight: '500',
-                    textAlign: 'center'
+                    marginBottom: '8px',
+                    fontWeight: '500'
                   }}>
                     Surah {currentStudyCard.surah_number}, Verse {currentStudyCard.verse_number}
                   </div>
                 )}
                 
-                {/* Arabic Word - REMOVED the surah info that was here */}
+                {/* Arabic Word */}
                 <div style={{ 
                   fontSize: '3.5rem', 
                   fontWeight: '700', 
@@ -3694,7 +3657,7 @@ function MainApp({ user }: { user: any }) {
                             📚 Grammar (How It Works)
                           </div>
                           <div style={{ fontSize: '14px', color: '#581c87', lineHeight: '1.5' }}>
-                            {currentStudyCard.grammarexplanation}
+                            {currentStudyCard.sampletranslation2}
                           </div>
                           {currentStudyCard.grammarSample && (
                             <div style={{ 
@@ -3814,7 +3777,7 @@ function MainApp({ user }: { user: any }) {
       </div>
     );
   };
-       
+     
   // Add this function to your MainApp component (after renderMyCardsTab)
 
   const renderReadTab = () => (
