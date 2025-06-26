@@ -213,13 +213,16 @@ Make it feel logical, not academic!
 ${baseInstruction}`;
 }
 
+// COMPLETE REPLACEMENT for generateQuranCompletePrompt function
+// Replace in app/api/translate/route.ts
+
 function generateQuranCompletePrompt(arabicWord: string, context: string, sourceInfo: any, baseInstruction: string): string {
   const surahName = sourceInfo.surahName || 'Unknown Surah';
   const surahNumber = sourceInfo.surahNumber || '';
   const verseNumber = sourceInfo.verseNumber || '';
   
   const verseReference = surahNumber && verseNumber ? 
-    `Surah ${surahName} (${surahNumber}), Verse ${verseNumber}` : 
+    `Surah ${surahName} (${surahNumber}:${verseNumber})` : 
     surahName;
   
   return `Analyze this Quranic Arabic word: "${arabicWord}"
@@ -227,30 +230,57 @@ function generateQuranCompletePrompt(arabicWord: string, context: string, source
 Source: ${verseReference}
 Full Verse Context: "${context}"
 
-This word appears in the Holy Quran. Provide complete classical Arabic analysis including:
+This word appears in the Holy Quran. Provide complete classical Arabic analysis following these EXACT requirements:
 
-FOCUS AREAS:
-- CLASSICAL QURANIC ARABIC analysis using traditional methodology
-- Hans Wehr dictionary for root meanings and patterns
-- Reference classical tafsir understanding when relevant (especially Ibn Kathir)
-- Complete morphological analysis showing word construction
-- Two sample sentences: one authentic Quranic usage, one contextual example
-- Full تصريف analysis explained in intuitive terms
-- Theological accuracy combined with linguistic precision
+CRITICAL REQUIREMENTS:
+- Reference Hans Wehr dictionary methodology for accurate root meanings and morphological analysis
+- Use CONVERSATIONAL grammar explanations like Language Transfer teaching style
+- Make grammar feel logical and intuitive, NOT academic
+- Find a DIFFERENT Quran verse that uses this EXACT word form (not the source verse)
+- If no other Quranic verse exists with exact form, create a realistic Arabic sentence
 
-GRAMMAR EXPLANATION STYLE:
-Explain grammar like talking to a student, not academic lecture:
-"Past action done BY one female - the ت shows us a woman did this"
-"Command to one male - like telling a guy 'you do this now!'"
-Make classical Arabic feel logical and accessible!
+RESPONSE FORMAT (JSON only, no markdown):
+{
+  "meaningInContext": "specific meaning of this word in this Quranic context",
+  "root": "ج-ذ-ر format with encompassing root meaning from Hans Wehr",
+  "rootConnection": "how this specific word connects to the root concept - explain the logical connection",
+  "morphology": "pattern breakdown showing construction (like قال + ت = past + female marker)",
+  "grammarExplanation": "INTUITIVE explanation using Language Transfer style - explain like talking to a friend, not academic lecture",
+  "grammarSample": "simple Arabic example showing the grammar point with translation",
+  "sampleSentence1": "DIFFERENT authentic Quranic verse using EXACT word form '${arabicWord}' with reference (2:255 format)",
+  "sampleTranslation1": "English translation of sample sentence 1 with verse reference",
+  "sampleSentence2": "realistic Arabic sentence using EXACT word form '${arabicWord}' - make it memorable/educational",
+  "sampleTranslation2": "English translation of sample sentence 2"
+}
 
-SAMPLE SENTENCES:
-- First: Another authentic Quranic usage of the exact word form
-- Second: Classical Arabic contextual example (can be educational/memorable)
+GRAMMAR EXPLANATION STYLE EXAMPLES:
+Instead of "masculine singular imperative" say → "command to one guy - telling him 'you do this!'"
+Instead of "feminine past tense" say → "past action done BY one female - she did this action, the ت shows us a woman did it"
+Instead of "passive participle" say → "something that GOT acted upon - it received the action, didn't do the action itself"
+
+SAMPLE SENTENCE 1 REQUIREMENTS:
+- Must be a REAL Quranic verse (different from source verse ${verseReference})
+- Must use the EXACT word form "${arabicWord}"
+- Include verse reference in format like: "من سورة البقرة (2:255)"
+- If no authentic Quranic usage exists, create realistic Arabic sentence instead
+
+MORPHOLOGY REQUIREMENTS:
+- Show how the word was built (root + additions)
+- Explain what each part does (like ت = female marker, ي = present tense marker)
+- Use Hans Wehr traditional methodology
+
+GRAMMAR DEPTH:
+Explain ALL important aspects but make them intuitive:
+- Gender/number (he/she/they doing action)
+- Time/tense (when did this happen)
+- Voice (who did action vs who received it)
+- Key patterns that help recognize similar words
+- Skip academic case names unless they change meaning significantly
+
+Make Arabic grammar feel like common sense, not memorization!
 
 ${baseInstruction}`;
 }
-
 function generateGeneralCompletePrompt(arabicWord: string, context: string, baseInstruction: string): string {
   return `Analyze this Arabic word: "${arabicWord}"
 ${context ? `Context: "${context}"` : ''}
