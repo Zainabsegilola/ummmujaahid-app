@@ -3547,7 +3547,7 @@ function MainApp({ user }: { user: any }) {
                       📝 Meaning in Context
                     </div>
                     <div style={{ fontSize: '16px', color: '#78350f', fontWeight: '600' }}>
-                      {currentStudyCard.meaningInContext || currentStudyCard.english_meaning || 'No meaning available'}
+                      {currentStudyCard.meaningincontext || currentStudyCard.english_meaning || 'No meaning available'}
                     </div>
                   </div>
   
@@ -3568,7 +3568,7 @@ function MainApp({ user }: { user: any }) {
                         {currentStudyCard.root}
                       </div>
                       <div style={{ fontSize: '13px', color: '#059669', fontStyle: 'italic' }}>
-                        {currentStudyCard.rootConnection || 'Root connection analysis'}
+                        {currentStudyCard.rootconnection || 'Root connection analysis'}
                       </div>
                     </div>
                   )}
@@ -3590,10 +3590,10 @@ function MainApp({ user }: { user: any }) {
                           marginBottom: '6px',
                           color: '#1e40af'
                         }}>
-                          {currentStudyCard.sampleSentence1}
+                          {currentStudyCard.samplesentence1}
                         </div>
                         <div style={{ fontSize: '13px', color: '#2563eb', fontStyle: 'italic' }}>
-                          {currentStudyCard.sampleTranslation1}
+                          {currentStudyCard.sampletranslation1}
                         </div>
                       </div>
                     )}
@@ -3613,10 +3613,10 @@ function MainApp({ user }: { user: any }) {
                           marginBottom: '6px',
                           color: '#be185d'
                         }}>
-                          {currentStudyCard.sampleSentence2}
+                         {currentStudyCard.samplesentence2}
                         </div>
                         <div style={{ fontSize: '13px', color: '#ec4899', fontStyle: 'italic' }}>
-                          {currentStudyCard.sampleTranslation2}
+                          {currentStudyCard.sampletranslation2}
                         </div>
                       </div>
                     )}
@@ -3645,7 +3645,7 @@ function MainApp({ user }: { user: any }) {
                   {showMoreDetails && (
                     <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
                       {/* Grammar Explanation */}
-                      {currentStudyCard.grammarExplanation && (
+                      {currentStudyCard.grammarexplanation && (
                         <div style={{
                           backgroundColor: '#f3f0ff',
                           border: '2px solid #8b5cf6',
@@ -3657,7 +3657,7 @@ function MainApp({ user }: { user: any }) {
                             📚 Grammar (How It Works)
                           </div>
                           <div style={{ fontSize: '14px', color: '#581c87', lineHeight: '1.5' }}>
-                            {currentStudyCard.grammarExplanation}
+                            {currentStudyCard.sampletranslation2}
                           </div>
                           {currentStudyCard.grammarSample && (
                             <div style={{ 
@@ -3668,7 +3668,7 @@ function MainApp({ user }: { user: any }) {
                               direction: 'rtl',
                               fontFamily: 'Arial, sans-serif'
                             }}>
-                              {currentStudyCard.grammarSample}
+                              {currentStudyCard.grammarsample}
                             </div>
                           )}
                         </div>
