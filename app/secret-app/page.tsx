@@ -1982,6 +1982,8 @@ function MainApp({ user }: { user: any }) {
       console.error('❌ Enhanced translation fetch failed:', error);
       return null;
     }
+    console.log('🔍 API Response:', data);
+    console.log('🔍 Translation data:', data.translation);
   };
   // Study functions
   const startStudying = async (deck: any) => {
