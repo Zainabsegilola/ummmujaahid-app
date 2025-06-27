@@ -238,7 +238,7 @@ function AuthForm() {
     </div>
   )
 }
-function ProfileDropdown({ user, onLogout }) {
+function ProfileDropdown({ user, onLogout, onGoToSettings }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -326,7 +326,7 @@ function ProfileDropdown({ user, onLogout }) {
           <button
             onClick={() => {
               setIsOpen(false);
-              // Future: navigate to settings page
+              onGoToSettings();
             }}
             style={{
               width: '100%',
@@ -469,6 +469,11 @@ function MainApp({ user }: { user: any }) {
     currentQueueIndex: 0,
     isPlayingContinuous: false
   });
+  //user setting states
+  const [userSettings, setUserSettings] = useState({
+    card_autoplay_audio: true
+  });
+  const [previousTab, setPreviousTab] = useState('my-cards'); // Track which tab to return to
 
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
@@ -503,6 +508,44 @@ function MainApp({ user }: { user: any }) {
         setIsLoadingPosts(false);
     }
   };
+  const loadUserSettings = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await getUserSettings(user.id);
+      if (!error && data) {
+        setUserSettings(data);
+      }
+    } catch (error) {
+      console.error('Error loading user settings:', error);
+    }
+  };
+  const saveUserSettings = async (newSettings) => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await updateUserSettings(user.id, newSettings);
+      if (!error) {
+        setUserSettings(prev => ({ ...prev, ...newSettings }));
+        setCardMessage('✅ Settings saved successfully!');
+        setTimeout(() => setCardMessage(''), 3000);
+      } else {
+        setCardMessage('❌ Failed to save settings');
+        setTimeout(() => setCardMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      setCardMessage('❌ Error saving settings');
+      setTimeout(() => setCardMessage(''), 3000);
+    }
+  };
+  const goToSettings = () => {
+    setPreviousTab(activeTab); // Remember current tab
+    setActiveTab('settings');
+  };
+  
+  const backFromSettings = () => {
+    setActiveTab(previousTab);
+  };
+
     
     // Load cards for a specific deck
   const loadDeckCards = async (deck) => {
@@ -726,6 +769,261 @@ function MainApp({ user }: { user: any }) {
     }
   };
 // RENDER FUNCTIONS
+  // STEP 6: Add this Settings page render function
+// Add this function after your other render functions (around line 1500-2000)
+
+  const renderSettingsPage = () => (
+    <div>
+      {/* Header with back button */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px',
+        padding: '16px',
+        backgroundColor: 'white',
+        borderRadius: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            onClick={backFromSettings}
+            style={{
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            ← Back
+          </button>
+          
+          <div>
+            <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0', color: '#111827' }}>
+              Settings
+            </h2>
+            <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
+              Manage your app preferences and study settings
+            </p>
+          </div>
+        </div>
+      </div>
+  
+      {/* Settings message */}
+      {cardMessage && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: cardMessage.includes('✅') ? '#f0fdf4' : '#fef2f2',
+          color: cardMessage.includes('✅') ? '#059669' : '#dc2626',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          {cardMessage}
+        </div>
+      )}
+  
+      {/* Settings Content */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+        overflow: 'hidden'
+      }}>
+        
+        {/* Card Settings Section */}
+        <div style={{ padding: '24px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '20px'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              backgroundColor: '#8b5cf6',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px'
+            }}>
+              📚
+            </div>
+            <div>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: '600',
+                margin: '0',
+                color: '#111827'
+              }}>
+                Card Settings
+              </h3>
+              <p style={{
+                fontSize: '14px',
+                color: '#6b7280',
+                margin: '4px 0 0 0'
+              }}>
+                Customize your flashcard study experience
+              </p>
+            </div>
+          </div>
+  
+          {/* Audio Autoplay Setting */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '16px',
+            backgroundColor: '#f9fafb',
+            borderRadius: '8px',
+            border: '1px solid #f3f4f6'
+          }}>
+            <div>
+              <div style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '4px'
+              }}>
+                🔊 Auto-play Quran Audio
+              </div>
+              <div style={{
+                fontSize: '14px',
+                color: '#6b7280'
+              }}>
+                Automatically play verse audio when studying Quran cards
+              </div>
+            </div>
+            
+            <label style={{
+              position: 'relative',
+              display: 'inline-block',
+              width: '50px',
+              height: '24px',
+              cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={userSettings.card_autoplay_audio}
+                onChange={(e) => {
+                  const newSettings = {
+                    ...userSettings,
+                    card_autoplay_audio: e.target.checked
+                  };
+                  setUserSettings(newSettings);
+                  saveUserSettings(newSettings);
+                }}
+                style={{ display: 'none' }}
+              />
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: userSettings.card_autoplay_audio ? '#8b5cf6' : '#d1d5db',
+                borderRadius: '24px',
+                transition: 'background-color 0.2s ease'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '2px',
+                  left: userSettings.card_autoplay_audio ? '28px' : '2px',
+                  width: '20px',
+                  height: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  transition: 'left 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                }} />
+              </div>
+            </label>
+          </div>
+  
+          {/* Future settings placeholders */}
+          <div style={{
+            marginTop: '16px',
+            padding: '16px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '2px dashed #e9ecef',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '14px',
+              color: '#6b7280',
+              fontStyle: 'italic'
+            }}>
+              More card settings coming soon...
+              <br />
+              • Study session length • Card difficulty • Review reminders
+            </div>
+          </div>
+        </div>
+  
+        {/* Future sections preview */}
+        <div style={{
+          borderTop: '1px solid #f3f4f6',
+          padding: '20px 24px',
+          backgroundColor: '#fafafa'
+        }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '16px'
+          }}>
+            {[
+              { icon: '🎵', title: 'Audio Settings', desc: 'Voice, speed, quality' },
+              { icon: '📱', title: 'App Preferences', desc: 'Theme, notifications' },
+              { icon: '📊', title: 'Study Analytics', desc: 'Progress tracking' }
+            ].map((section, index) => (
+              <div key={index} style={{
+                padding: '16px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                opacity: '0.6',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px' }}>
+                  {section.icon}
+                </div>
+                <div style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '4px'
+                }}>
+                  {section.title}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#6b7280'
+                }}>
+                  {section.desc}
+                </div>
+                <div style={{
+                  fontSize: '10px',
+                  color: '#9ca3af',
+                  marginTop: '8px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Coming Soon
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
  // Process transcript into words
   const processTranscriptWords = (transcript: any[]) => {
     const words: any[] = [];
@@ -1740,6 +2038,12 @@ function MainApp({ user }: { user: any }) {
         loadCommunityPosts();
     }
   }, [activeTab, user]);
+  
+  useEffect(() => {
+    if (user?.id) {
+      loadUserSettings();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user?.id) loadUserDecks();
@@ -4952,6 +5256,8 @@ function MainApp({ user }: { user: any }) {
     switch (activeTab) {
       case 'watch':
         return renderWatchTab();
+      case 'settings':
+        return renderSettingsPage();
       case 'my-cards':
         return renderMyCardsTab();
       case 'read':
@@ -5658,7 +5964,7 @@ function MainApp({ user }: { user: any }) {
                     عَرَبِيًّا
                 </div>
             </div>
-            <ProfileDropdown user={user} onLogout={handleLogout} />
+            <ProfileDropdown user={user} onLogout={handleLogout} onGoToSettings={goToSettings} />
           </div>
 
           <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginTop: '16px' }}>
