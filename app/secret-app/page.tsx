@@ -444,6 +444,10 @@ function MainApp({ user }: { user: any }) {
   const [currentVerseIndex, setCurrentVerseIndex] = useState(0);
   const [currentSurah, setCurrentSurah] = useState<any>(null);
   const [currentVerses, setCurrentVerses] = useState<any[]>([]);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [autoScrollPaused, setAutoScrollPaused] = useState(false);
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const quranContainerRef = useRef<HTMLDivElement>(null);
   const [selectedSurahNumber, setSelectedSurahNumber] = useState(1);
   const [playMode, setPlayMode] = useState('single'); // 'single', 'range', 'full'
   const [playRange, setPlayRange] = useState({ start: 1, end: 1 });
@@ -1705,6 +1709,50 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => initializePlayer(), 500);
     }
   }, [currentVideoId]);
+
+  useEffect(() => {
+    if (autoScrollEnabled && !autoScrollPaused && currentPlayingVerse && playbackMode === 'full') {
+      const scrollToCurrentVerse = () => {
+        if (quranContainerRef.current) {
+          const verseElement = quranContainerRef.current.querySelector(`[data-verse="${currentPlayingVerse}"]`);
+          if (verseElement) {
+            setIsAutoScrolling(true);
+            verseElement.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            });
+            
+            // Reset auto-scrolling flag after animation completes
+            setTimeout(() => {
+              setIsAutoScrolling(false);
+            }, 1000);
+          }
+        }
+      };
+  
+      // Delay scroll slightly to ensure verse is updated
+      setTimeout(scrollToCurrentVerse, 200);
+    }
+  }, [currentPlayingVerse, autoScrollEnabled, autoScrollPaused, playbackMode]);
+  // Add scroll listener to detect manual scrolling
+  useEffect(() => {
+    const handleScroll = () => {
+      if (autoScrollEnabled && !isAutoScrolling && playbackMode === 'full') {
+        setAutoScrollPaused(true);
+      }
+    };
+  
+    if (quranContainerRef.current) {
+      quranContainerRef.current.addEventListener('scroll', handleScroll, { passive: true });
+      return () => {
+        if (quranContainerRef.current) {
+          quranContainerRef.current.removeEventListener('scroll', handleScroll);
+        }
+      };
+    }
+  }, [autoScrollEnabled, isAutoScrolling, playbackMode]);
+
 
   // Auto-scroll effect 
   useEffect(() => {
@@ -4686,115 +4734,187 @@ function MainApp({ user }: { user: any }) {
     if (!currentVerses || currentVerses.length === 0) return null;
   
     return (
-      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)' }}>
-        {/* Mushaf Header */}
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', position: 'relative' }}>
+        
+        {/* STICKY CONTROLS HEADER */}
         <div style={{ 
-          padding: 'clamp(15px, 3vw, 20px) clamp(20px, 4vw, 30px)',
+          position: 'sticky',
+          top: '0',
+          zIndex: 100,
+          backgroundColor: 'rgba(249, 250, 251, 0.95)',
+          backdropFilter: 'blur(10px)',
           borderBottom: '2px solid #f3f4f6',
-          backgroundColor: '#f9fafb'
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)'
         }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ 
-              fontSize: 'clamp(1.2rem, 5vw, 1.5rem)', 
-              fontWeight: '700', 
-              color: '#8b5cf6',
-              fontFamily: 'Arial, sans-serif',
-              direction: 'rtl',
-              marginBottom: '8px'
-            }}>
-              {currentSurah?.name_arabic}
-            </div>
-            <div style={{ 
-              fontSize: 'clamp(0.8rem, 3vw, 1rem)', 
-              color: '#6b7280',
-              marginBottom: '12px'
-            }}>
-              {currentSurah?.name_english} • {currentVerses.length} Verses • {currentSurah?.revelation_place}
-            </div>
-            
-            {/* Audio Controls for Full Surah */}
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              gap: 'clamp(8px, 2vw, 12px)', 
-              alignItems: 'center',
-              flexWrap: 'wrap'
-            }}>
-              <button
-                onClick={() => {
-                  if (playbackMode === 'full' || isPlayingContinuous) {
-                    stopAudio();
-                  } else {
-                    playFullSurah();
-                  }
-                }}
-                disabled={isLoadingAudio || !currentVerses || currentVerses.length === 0}
-                style={{
-                  backgroundColor: (playbackMode === 'full' || isPlayingContinuous) ? '#dc2626' : '#059669',
-                  color: 'white',
-                  padding: 'clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px)',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: 'clamp(0.7rem, 2.5vw, 0.875rem)',
-                  fontWeight: '600',
-                  cursor: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 'not-allowed' : 'pointer',
-                  opacity: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 0.6 : 1
-                }}
-              >
-                {playbackMode === 'full' || isPlayingContinuous ? '⏹ Stop Full Surah' : '▶ Play Full Surah'}
-              </button>
+          <div style={{ padding: 'clamp(15px, 3vw, 20px) clamp(20px, 4vw, 30px)' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ 
+                fontSize: 'clamp(1.2rem, 5vw, 1.5rem)', 
+                fontWeight: '700', 
+                color: '#8b5cf6',
+                fontFamily: 'Arial, sans-serif',
+                direction: 'rtl',
+                marginBottom: '8px'
+              }}>
+                {currentSurah?.name_arabic}
+              </div>
+              <div style={{ 
+                fontSize: 'clamp(0.8rem, 3vw, 1rem)', 
+                color: '#6b7280',
+                marginBottom: '12px'
+              }}>
+                {currentSurah?.name_english} • {currentVerses.length} Verses • {currentSurah?.revelation_place}
+              </div>
               
-              {/* Enhanced Progress Display */}
-              {playbackMode === 'full' && playbackQueue.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(4px, 1vw, 8px)', flexWrap: 'wrap' }}>
-                  <span style={{ 
-                    fontSize: 'clamp(0.6rem, 2vw, 0.75rem)', 
-                    color: '#059669',
-                    backgroundColor: '#f0fdf4',
-                    padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 8px)',
-                    borderRadius: '4px',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    🎵 Playing verse {currentPlayingVerse}
-                  </span>
-                  <span style={{ 
-                    fontSize: 'clamp(0.5rem, 1.8vw, 0.6875rem)', 
-                    color: '#6b7280',
-                    backgroundColor: '#f3f4f6',
-                    padding: 'clamp(1px, 0.3vw, 2px) clamp(3px, 0.8vw, 6px)',
-                    borderRadius: '4px',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {currentQueueIndex + 1} / {playbackQueue.length}
-                  </span>
-                </div>
-              )}
-              
-              {/* Pause/Resume Button */}
-              {playbackMode === 'full' && currentAudio && (
+              {/* ENHANCED AUDIO CONTROLS WITH AUTO-SCROLL */}
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: 'clamp(6px, 1.5vw, 8px)', 
+                alignItems: 'center',
+                flexWrap: 'wrap'
+              }}>
+                {/* Main Play/Stop Button */}
                 <button
                   onClick={() => {
-                    if (currentAudio.paused) {
-                      currentAudio.play();
-                      setQuranMessage(`🔊 Resumed verse ${currentPlayingVerse}`);
+                    if (playbackMode === 'full' || isPlayingContinuous) {
+                      stopAudio();
+                      setAutoScrollPaused(false); // Reset auto-scroll when stopping
                     } else {
-                      currentAudio.pause();
-                      setQuranMessage(`⏸ Paused verse ${currentPlayingVerse}`);
+                      playFullSurah();
+                      setAutoScrollPaused(false); // Enable auto-scroll when starting
+                    }
+                  }}
+                  disabled={isLoadingAudio || !currentVerses || currentVerses.length === 0}
+                  style={{
+                    backgroundColor: (playbackMode === 'full' || isPlayingContinuous) ? '#dc2626' : '#059669',
+                    color: 'white',
+                    padding: 'clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px)',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: 'clamp(0.7rem, 2.5vw, 0.875rem)',
+                    fontWeight: '600',
+                    cursor: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 'not-allowed' : 'pointer',
+                    opacity: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 0.6 : 1
+                  }}
+                >
+                  {playbackMode === 'full' || isPlayingContinuous ? '⏹ Stop' : '▶ Play Full Surah'}
+                </button>
+  
+                {/* Auto-scroll Toggle */}
+                <button
+                  onClick={() => {
+                    if (autoScrollPaused) {
+                      setAutoScrollPaused(false);
+                    } else {
+                      setAutoScrollEnabled(!autoScrollEnabled);
+                      if (!autoScrollEnabled) {
+                        setAutoScrollPaused(false);
+                      }
                     }
                   }}
                   style={{
-                    backgroundColor: '#f59e0b',
-                    color: 'white',
+                    backgroundColor: (autoScrollEnabled && !autoScrollPaused) ? '#8b5cf6' : '#f3f4f6',
+                    color: (autoScrollEnabled && !autoScrollPaused) ? 'white' : '#6b7280',
                     padding: 'clamp(4px, 1vw, 6px) clamp(8px, 2vw, 12px)',
                     borderRadius: '6px',
-                    border: 'none',
+                    border: '1px solid ' + ((autoScrollEnabled && !autoScrollPaused) ? '#8b5cf6' : '#d1d5db'),
                     fontSize: 'clamp(0.6rem, 2vw, 0.75rem)',
                     fontWeight: '600',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
+                  title={
+                    autoScrollPaused ? "Auto-scroll paused (click to resume)" :
+                    autoScrollEnabled ? "Auto-scroll ON (click to disable)" : 
+                    "Auto-scroll OFF (click to enable)"
+                  }
                 >
-                  {currentAudio.paused ? '▶ Resume' : '⏸ Pause'}
+                  <span>📜</span>
+                  <span style={{ fontSize: 'clamp(0.5rem, 1.8vw, 0.65rem)' }}>
+                    {autoScrollPaused ? 'Paused' : autoScrollEnabled ? 'ON' : 'OFF'}
+                  </span>
                 </button>
+                
+                {/* Progress Display */}
+                {playbackMode === 'full' && playbackQueue.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(4px, 1vw, 6px)', flexWrap: 'wrap' }}>
+                    <span style={{ 
+                      fontSize: 'clamp(0.6rem, 2vw, 0.75rem)', 
+                      color: '#059669',
+                      backgroundColor: '#f0fdf4',
+                      padding: 'clamp(2px, 0.5vw, 4px) clamp(4px, 1vw, 8px)',
+                      borderRadius: '4px',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <span style={{ 
+                        width: '6px', 
+                        height: '6px', 
+                        backgroundColor: '#059669', 
+                        borderRadius: '50%',
+                        animation: 'pulse 1.5s infinite'
+                      }}></span>
+                      Verse {currentPlayingVerse}
+                    </span>
+                    <span style={{ 
+                      fontSize: 'clamp(0.5rem, 1.8vw, 0.6875rem)', 
+                      color: '#6b7280',
+                      backgroundColor: '#f3f4f6',
+                      padding: 'clamp(1px, 0.3vw, 2px) clamp(3px, 0.8vw, 6px)',
+                      borderRadius: '4px',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {currentQueueIndex + 1} / {playbackQueue.length}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Pause/Resume Button */}
+                {playbackMode === 'full' && currentAudio && (
+                  <button
+                    onClick={() => {
+                      if (currentAudio.paused) {
+                        currentAudio.play();
+                        setQuranMessage(`🔊 Resumed verse ${currentPlayingVerse}`);
+                      } else {
+                        currentAudio.pause();
+                        setQuranMessage(`⏸ Paused verse ${currentPlayingVerse}`);
+                      }
+                    }}
+                    style={{
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      padding: 'clamp(4px, 1vw, 6px) clamp(8px, 2vw, 12px)',
+                      borderRadius: '6px',
+                      border: 'none',
+                      fontSize: 'clamp(0.6rem, 2vw, 0.75rem)',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {currentAudio.paused ? '▶ Resume' : '⏸ Pause'}
+                  </button>
+                )}
+              </div>
+  
+              {/* Auto-scroll Status Indicator */}
+              {autoScrollPaused && playbackMode === 'full' && (
+                <div style={{
+                  marginTop: '8px',
+                  fontSize: 'clamp(0.6rem, 1.8vw, 0.7rem)',
+                  color: '#d97706',
+                  backgroundColor: '#fef3c7',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  display: 'inline-block'
+                }}>
+                  📜 Auto-scroll paused - Click toggle to resume
+                </div>
               )}
             </div>
           </div>
@@ -4815,23 +4935,40 @@ function MainApp({ user }: { user: any }) {
           </div>
         )}
   
-        {/* AUTHENTIC MUSHAF VERSES LAYOUT */}
-        <div style={{ 
-          padding: 'clamp(20px, 4vw, 30px)',
-          maxWidth: '900px', // Prevent overflow on large screens
-          margin: '0 auto', // Center the content
-          backgroundColor: '#fdfdfd'
-        }}>
+        {/* SCROLLABLE VERSES CONTAINER */}
+        <div 
+          ref={quranContainerRef}
+          style={{ 
+            padding: 'clamp(20px, 4vw, 30px)',
+            maxWidth: '900px',
+            margin: '0 auto',
+            backgroundColor: '#fdfdfd',
+            maxHeight: 'calc(100vh - 200px)', // Allow scrolling
+            overflowY: 'auto',
+            scrollBehavior: 'smooth'
+          }}
+        >
           {currentVerses.map((verse, index) => (
-            <div key={`verse-${verse.verse_number}`} style={{
-              marginBottom: 'clamp(8px, 1.5vw, 12px)', // Minimal spacing between verses
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 'clamp(8px, 1.5vw, 12px)',
-              direction: 'rtl'
-            }}>
+            <div 
+              key={`verse-${verse.verse_number}`} 
+              data-verse={verse.verse_number} // Important: for auto-scroll targeting
+              style={{
+                marginBottom: 'clamp(8px, 1.5vw, 12px)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 'clamp(8px, 1.5vw, 12px)',
+                direction: 'rtl',
+                // Enhanced highlight for currently playing verse
+                backgroundColor: currentPlayingVerse === verse.verse_number ? 'rgba(139, 92, 246, 0.12)' : 'transparent',
+                padding: currentPlayingVerse === verse.verse_number ? 'clamp(6px, 1.5vw, 8px)' : '0',
+                borderRadius: currentPlayingVerse === verse.verse_number ? '6px' : '0',
+                border: currentPlayingVerse === verse.verse_number ? '2px solid rgba(139, 92, 246, 0.3)' : '2px solid transparent',
+                transition: 'all 0.4s ease',
+                transform: currentPlayingVerse === verse.verse_number ? 'scale(1.02)' : 'scale(1)'
+              }}
+            >
               
-              {/* Verse Number - Authentic Style (Small, before verse) */}
+              {/* Verse Number - Enhanced for playing state */}
               <span
                 style={{
                   display: 'inline-block',
@@ -4848,7 +4985,8 @@ function MainApp({ user }: { user: any }) {
                   transition: 'all 0.15s ease',
                   border: '1px solid ' + (currentPlayingVerse === verse.verse_number ? '#8b5cf6' : '#d1d5db'),
                   flexShrink: 0,
-                  marginTop: '2px' // Slight alignment with text
+                  marginTop: '2px',
+                  boxShadow: currentPlayingVerse === verse.verse_number ? '0 0 0 3px rgba(139, 92, 246, 0.2)' : 'none'
                 }}
                 onClick={() => playVerseAudio(verse.verse_number, verse.global_ayah_number)}
                 onMouseEnter={(e) => {
@@ -4867,19 +5005,15 @@ function MainApp({ user }: { user: any }) {
               </span>
   
               {/* Verse Text Container */}
-              <div style={{ flex: '1', minWidth: 0 }}> {/* minWidth: 0 allows proper text wrapping */}
+              <div style={{ flex: '1', minWidth: 0 }}>
                 
-                {/* Arabic Text - Authentic Mushaf Style */}
+                {/* Arabic Text */}
                 <div style={{ 
                   fontSize: 'clamp(1.1rem, 3vw, 1.8rem)', 
-                  lineHeight: '1.5', // Tight like book text
+                  lineHeight: '1.5',
                   direction: 'rtl',
                   fontFamily: 'Arial, sans-serif',
-                  textAlign: 'right', // Right-aligned, not justified
-                  backgroundColor: currentPlayingVerse === verse.verse_number ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
-                  padding: currentPlayingVerse === verse.verse_number ? 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)' : '0',
-                  borderRadius: currentPlayingVerse === verse.verse_number ? '4px' : '0',
-                  transition: 'all 0.3s ease',
+                  textAlign: 'right',
                   wordWrap: 'break-word',
                   overflowWrap: 'break-word',
                   wordBreak: 'break-word',
@@ -4919,7 +5053,7 @@ function MainApp({ user }: { user: any }) {
                   )}
                 </div>
                 
-                {/* Translation (if enabled) - Compact Style */}
+                {/* Translation (if enabled) */}
                 {quranSettings.show_translation && (
                   <div style={{
                     fontSize: 'clamp(0.75rem, 2.2vw, 0.9rem)',
@@ -4953,7 +5087,7 @@ function MainApp({ user }: { user: any }) {
           ))}
         </div>
   
-        {/* Mushaf Footer - RESPONSIVE */}
+        {/* Mushaf Footer */}
         <div style={{ 
           backgroundColor: '#f0fdf4', 
           borderRadius: '0 0 8px 8px', 
@@ -4973,7 +5107,7 @@ function MainApp({ user }: { user: any }) {
               flex: '1',
               minWidth: '200px'
             }}>
-              <strong>💡 How to Use:</strong> Double-click Arabic words to add to flashcards • Click verse numbers to play audio • Highlighted text shows currently playing verse
+              <strong>💡 How to Use:</strong> Double-click Arabic words to add to flashcards • Click verse numbers to play audio • Auto-scroll follows playback
             </div>
             <div style={{ 
               fontSize: 'clamp(0.6rem, 2vw, 0.75rem)', 
@@ -4984,6 +5118,14 @@ function MainApp({ user }: { user: any }) {
             </div>
           </div>
         </div>
+  
+        {/* Add CSS animation for pulse effect */}
+        <style jsx>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        `}</style>
       </div>
     );
   };
