@@ -1222,9 +1222,7 @@ function MainApp({ user }: { user: any }) {
         )}
       </div>
     );
-
-   
-  // 2. ENHANCED QURAN TRANSLATION CALL
+  // 2. ENHANCED QURAN TRANSLATION CALL WITH CACHING
   const handleQuranWordDoubleClick = async (word: string, surahNumber: number, verseNumber: number, wordPosition: number, verseText: string) => {
     if (!user?.id) {
       setQuranMessage('❌ Not logged in');
@@ -1246,46 +1244,81 @@ function MainApp({ user }: { user: any }) {
     }
   
     try {
-      setQuranMessage('🔄 Creating enhanced Quranic analysis...');
+      setQuranMessage('🔄 Checking cache for enhanced analysis...');
       
-      // Enhanced context with Surah info
-      const surahName = currentSurah?.name_english || 'Unknown Surah';
-      const enhancedContext = `Surah ${surahName} (${surahNumber}), Verse ${verseNumber}: ${verseText}`;
-      
-      // ENHANCED API CALL
-      const translationData = await fetchEnhancedTranslation(
+      // STEP 1: Check if translation is cached
+      const cachedTranslation = await getQuranTranslationCache(
         cleanWord, 
-        enhancedContext, 
-        'quran',
-        {
-          surahName: surahName,
-          surahNumber: surahNumber,
-          verseNumber: verseNumber
-        }
+        surahNumber, 
+        verseNumber, 
+        wordPosition
       );
-      
-      if (translationData) {
-        setQuranMessage('🔄 Enhanced Quranic analysis received, saving card...');
-        console.log('Enhanced Quran translation:', translationData);
+  
+      let translationData = null;
+  
+      if (cachedTranslation) {
+        // CACHE HIT: Use existing translation
+        setQuranMessage('✅ Found cached translation, creating your card...');
+        translationData = cachedTranslation;
+        console.log('🎯 Using cached Quran translation:', translationData);
       } else {
-        setQuranMessage('🔄 Analysis failed, saving card without enhanced data...');
+        // CACHE MISS: Call API and cache the result
+        setQuranMessage('🔄 Creating new enhanced Quranic analysis...');
+        
+        // Enhanced context with Surah info
+        const surahName = currentSurah?.name_english || 'Unknown Surah';
+        const enhancedContext = `Surah ${surahName} (${surahNumber}), Verse ${verseNumber}: ${verseText}`;
+        
+        // Call the API for new translation
+        translationData = await fetchEnhancedTranslation(
+          cleanWord, 
+          enhancedContext, 
+          'quran',
+          {
+            surahName: surahName,
+            surahNumber: surahNumber,
+            verseNumber: verseNumber
+          }
+        );
+        
+        if (translationData) {
+          setQuranMessage('🔄 Enhanced analysis received, caching for future use...');
+          console.log('✨ New enhanced Quran translation:', translationData);
+          
+          // STEP 2: Save to cache for future users
+          await saveQuranTranslationCache(
+            cleanWord,
+            surahNumber,
+            verseNumber,
+            translationData,
+            wordPosition
+          );
+          
+          setQuranMessage('🔄 Translation cached, saving your card...');
+        } else {
+          setQuranMessage('🔄 Analysis failed, saving card without enhanced data...');
+        }
       }
   
-      // Save Quran card with enhanced translation data
+      // Enhanced context with Surah info for the card
+      const surahName = currentSurah?.name_english || 'Unknown Surah';
+      const enhancedContext = `Surah ${surahName} (${surahNumber}), Verse ${verseNumber}: ${verseText}`;
+  
+      // STEP 3: Save Quran card with translation data (cached or new)
       const result = await addQuranCard(
         quranDeck.id,
         cleanWord,
         surahNumber,
         verseNumber,
         wordPosition,
-        enhancedContext, // Use enhanced context
+        enhancedContext,
         user.id,
         translationData
       );
   
       if (result.error) {
         if (result.error.message?.includes('duplicate key')) {
-          setQuranMessage(`ℹ️ "${cleanWord}" already in deck`);
+          setQuranMessage(`ℹ️ "${cleanWord}" already in your deck`);
         } else {
           setQuranMessage(`❌ Error: ${result.error.message}`);
         }
