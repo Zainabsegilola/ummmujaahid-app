@@ -1381,12 +1381,6 @@ function MainApp({ user }: { user: any }) {
       return;
     }
   
-    if (!quranDeck?.id) {
-      setQuranMessage('❌ No deck loaded');
-      setTimeout(() => setQuranMessage(''), 3000);
-      return;
-    }
-  
     const cleanWord = cleanArabicWord(word);
     if (!cleanWord) {
       setQuranMessage('❌ No Arabic text in this word');
@@ -1454,13 +1448,53 @@ function MainApp({ user }: { user: any }) {
       const surahName = currentSurah?.name_english || 'Unknown Surah';
       const enhancedContext = `Surah ${surahName} (${surahNumber}), Verse ${verseNumber}: ${verseText}`;
       
-      // STEP 3: Create deck if it doesn't exist, then save card
+      //Create deck if it doesn't exist, then save card
       let deckToUse = quranDeck;
       if (!deckToUse?.id && user?.id && currentSurah) {
         setQuranMessage('🔄 Creating deck for this surah...');
-        const { data: deck } = await createSurahDeck(currentSurah.name_english, surahNumber, user.id);
-        setQuranDeck(deck);
-        deckToUse = deck;
+        
+        // Check if deck already exists in database
+        const { data: existingDeck, error: fetchError } = await supabase
+          .from('decks')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('name', currentSurah.name_arabic)
+          .single();
+      
+        if (existingDeck && !fetchError) {
+          // Use existing deck
+          setQuranDeck(existingDeck);
+          deckToUse = existingDeck;
+          setQuranMessage('🔄 Found existing deck, adding word...');
+        } else {
+          // Create new deck with Arabic name
+          const { data: newDeck, error: createError } = await supabase
+            .from('decks')
+            .insert({
+              user_id: user.id,
+              name: currentSurah.name_arabic, // Arabic name instead of English
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+      
+          if (createError) {
+            setQuranMessage('❌ Failed to create deck. Please try again.');
+            setTimeout(() => setQuranMessage(''), 3000);
+            return;
+          }
+      
+          setQuranDeck(newDeck);
+          deckToUse = newDeck;
+          setQuranMessage('🔄 Created new deck, adding word...');
+        }
+      }
+      
+      if (!deckToUse?.id) {
+        setQuranMessage('❌ Could not create deck. Please try again.');
+        setTimeout(() => setQuranMessage(''), 3000);
+        return;
       }
       
       if (!deckToUse?.id) {
