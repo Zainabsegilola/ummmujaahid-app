@@ -453,6 +453,13 @@ function MainApp({ user }: { user: any }) {
     show_translation: false,
     auto_scroll: true
   });
+  const playbackStateRef = useRef({
+    playbackMode: 'single' as 'single' | 'full' | 'range',
+    playbackQueue: [] as any[],
+    currentQueueIndex: 0,
+    isPlayingContinuous: false
+  });
+
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -781,6 +788,7 @@ function MainApp({ user }: { user: any }) {
       setIsLoadingQuran(false);
     }
   };
+
    const playVerseAudio = async (verseNumber: number, globalAyahNumber: number, isFromQueue: boolean = false) => {
       try {
         console.log('🎵 Playing verse:', verseNumber, 'Global ayah:', globalAyahNumber, 'From queue:', isFromQueue);
@@ -843,19 +851,55 @@ function MainApp({ user }: { user: any }) {
                 audio.src = audioUrl;
               });
               
-              // SUCCESS! Setup audio events
+              // 🔥 FIXED: Use playbackStateRef instead of closure variables
               audio.onended = () => {
                 console.log('🎵 Audio ended for verse:', verseNumber);
-                handleAudioEnded();
+                console.log('🔥 Ref state at audio end:', playbackStateRef.current);
+                
+                const { playbackMode: currentMode, playbackQueue: currentQueue, currentQueueIndex: currentIndex } = playbackStateRef.current;
+                
+                if (currentMode === 'full' && currentQueue.length > 0) {
+                  // Check if there are more verses in the queue
+                  if (currentIndex + 1 < currentQueue.length) {
+                    // Move to next verse
+                    const nextIndex = currentIndex + 1;
+                    setCurrentQueueIndex(nextIndex);
+                    
+                    const nextVerse = currentQueue[nextIndex];
+                    console.log('🎵 Playing next verse in queue:', nextVerse.verse_number);
+                    
+                    // Small delay before next verse (500ms)
+                    setTimeout(() => {
+                      playVerseAudio(nextVerse.verse_number, nextVerse.global_ayah_number, true);
+                    }, 500);
+                  } else {
+                    // Queue finished
+                    console.log('🎵 Full surah playback completed');
+                    setQuranMessage('✅ Full surah playback completed');
+                    setPlaybackMode('single');
+                    setPlaybackQueue([]);
+                    setCurrentQueueIndex(0);
+                    setCurrentPlayingVerse(null);
+                    setCurrentAudio(null);
+                    setIsPlayingContinuous(false);
+                    setTimeout(() => setQuranMessage(''), 3000);
+                  }
+                } else {
+                  // Single verse mode
+                  setCurrentPlayingVerse(null);
+                  setCurrentAudio(null);
+                  setQuranMessage('');
+                }
               };
               
               setCurrentAudio(audio);
               setCurrentPlayingVerse(verseNumber);
               
               // Update message based on playback mode
-              if (playbackMode === 'full') {
-                const queuePosition = currentQueueIndex + 1;
-                const totalVerses = playbackQueue.length;
+              const currentMode = playbackStateRef.current.playbackMode;
+              if (currentMode === 'full') {
+                const queuePosition = playbackStateRef.current.currentQueueIndex + 1;
+                const totalVerses = playbackStateRef.current.playbackQueue.length;
                 setQuranMessage(`🔊 Playing verse ${verseNumber} (${queuePosition}/${totalVerses})`);
               } else {
                 setQuranMessage(`🔊 Playing verse ${verseNumber}`);
@@ -880,7 +924,7 @@ function MainApp({ user }: { user: any }) {
         console.error('Audio playback failed:', error);
         
         // Handle retry for queue playback
-        if (isFromQueue && playbackMode === 'full') {
+        if (isFromQueue && playbackStateRef.current.playbackMode === 'full') {
           console.log('🔄 Retrying failed verse in queue...');
           setTimeout(() => {
             playVerseAudio(verseNumber, globalAyahNumber, true);
@@ -899,6 +943,7 @@ function MainApp({ user }: { user: any }) {
         }, 5000);
       }
     };
+
     const handleAudioEnded = () => {
       console.log('🎵 handleAudioEnded called, playbackMode:', playbackMode, 'queueIndex:', currentQueueIndex);
       console.log('🔥 handleAudioEnded called!');
@@ -969,23 +1014,24 @@ function MainApp({ user }: { user: any }) {
       playVerseAudio(firstVerse.verse_number, firstVerse.global_ayah_number, true);
     };
   
+  
   const stopAudio = () => {
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-        setCurrentAudio(null);
-      }
-      
-      // Reset all playback states
-      setCurrentPlayingVerse(null);
-      setIsPlayingContinuous(false);
-      setPlaybackMode('single');
-      setPlaybackQueue([]);
-      setCurrentQueueIndex(0);
-      setQuranMessage('');
-      
-      console.log('🎵 Audio stopped and all states reset');
-    };
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setCurrentAudio(null);
+    }
+    
+    // Reset all playback states
+    setCurrentPlayingVerse(null);
+    setIsPlayingContinuous(false);
+    setPlaybackMode('single');
+    setPlaybackQueue([]);
+    setCurrentQueueIndex(0);
+    setQuranMessage('');
+    
+    console.log('🎵 Audio stopped and all states reset');
+  };
   
     // Navigation functions for single verse mode
   const goToNextVerse = () => {
@@ -1696,6 +1742,16 @@ function MainApp({ user }: { user: any }) {
       loadQuranSettings();
     }
   }, [activeTab, user]);
+  
+  useEffect(() => {
+    playbackStateRef.current = {
+      playbackMode,
+      playbackQueue,
+      currentQueueIndex,
+      isPlayingContinuous
+    };
+    console.log('📊 Updated playbackStateRef:', playbackStateRef.current);
+  }, [playbackMode, playbackQueue, currentQueueIndex, isPlayingContinuous]);
 
   useEffect(() => {
     if (selectedSurahNumber && surahs.length > 0) {
