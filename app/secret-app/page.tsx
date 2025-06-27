@@ -4274,6 +4274,81 @@ function MainApp({ user }: { user: any }) {
                     {currentStudyCard.arabic_word}
                   </div>
     
+                  {/* AUDIO CONTROLS SECTION */}
+                  {currentStudyCard.surah_number && (
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      gap: '12px',
+                      marginBottom: '20px',
+                      padding: '12px',
+                      backgroundColor: '#f0fdf4',
+                      borderRadius: '8px',
+                      border: '1px solid #d1fae5'
+                    }}>
+                      <button
+                        onClick={() => playStudyCardAudio(currentStudyCard, true)}
+                        disabled={isStudyAudioLoading}
+                        style={{
+                          backgroundColor: studyCardAudio ? '#dc2626' : '#059669',
+                          color: 'white',
+                          padding: '8px 16px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: isStudyAudioLoading ? 'not-allowed' : 'pointer',
+                          opacity: isStudyAudioLoading ? 0.6 : 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        {isStudyAudioLoading ? (
+                          <>
+                            <span style={{
+                              display: 'inline-block',
+                              width: '12px',
+                              height: '12px',
+                              border: '2px solid white',
+                              borderTop: '2px solid transparent',
+                              borderRadius: '50%',
+                              animation: 'spin 1s linear infinite'
+                            }}></span>
+                            Loading...
+                          </>
+                        ) : studyCardAudio ? (
+                          '⏹ Stop Audio'
+                        ) : (
+                          '🔊 Play Verse'
+                        )}
+                      </button>
+              
+                      {/* Audio status */}
+                      {studyAudioStatus && (
+                        <span style={{
+                          fontSize: '12px',
+                          color: studyAudioStatus.includes('❌') ? '#dc2626' : '#059669',
+                          fontWeight: '500'
+                        }}>
+                          {studyAudioStatus}
+                        </span>
+                      )}
+              
+                      {/* Autoplay indicator */}
+                      <span style={{
+                        fontSize: '11px',
+                        color: '#6b7280',
+                        backgroundColor: '#f3f4f6',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
+                      }}>
+                        Auto-play: {userSettings.card_autoplay_audio ? 'ON' : 'OFF'}
+                      </span>
+                    </div>
+                  )}
+    
                   {/* DEFAULT VISIBLE SECTIONS */}
                   <div style={{ marginBottom: '25px' }}>
                     
@@ -4479,142 +4554,69 @@ function MainApp({ user }: { user: any }) {
     
               {/* Action buttons */}
               {!showAnswer ? (
-              <button
-                onClick={() => {
-                  setShowAnswer(true);
-                  // Auto-play audio when showing answer (if enabled)
-                  if (userSettings.card_autoplay_audio) {
-                    setTimeout(() => {
-                      playStudyCardAudio(currentStudyCard, false);
-                    }, 500); // Small delay to let UI update first
-                  }
-                }}
-                style={{
-                  backgroundColor: '#8b5cf6',
-                  color: 'white',
-                  padding: '16px 40px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  fontSize: '18px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
-                }}
-              >
-                Show Answer
-              </button>
-            ) : (
-              <div>
-                {/* AUDIO CONTROLS SECTION - Add this right after the Arabic word display */}
-                {currentStudyCard.surah_number && (
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    gap: '12px',
-                    marginBottom: '20px',
-                    padding: '12px',
-                    backgroundColor: '#f0fdf4',
-                    borderRadius: '8px',
-                    border: '1px solid #d1fae5'
-                  }}>
-                    <button
-                      onClick={() => playStudyCardAudio(currentStudyCard, true)}
-                      disabled={isStudyAudioLoading}
-                      style={{
-                        backgroundColor: studyCardAudio ? '#dc2626' : '#059669',
-                        color: 'white',
-                        padding: '8px 16px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: isStudyAudioLoading ? 'not-allowed' : 'pointer',
-                        opacity: isStudyAudioLoading ? 0.6 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {isStudyAudioLoading ? (
-                        <>
-                          <span style={{
-                            display: 'inline-block',
-                            width: '12px',
-                            height: '12px',
-                            border: '2px solid white',
-                            borderTop: '2px solid transparent',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite'
-                          }}></span>
-                          Loading...
-                        </>
-                      ) : studyCardAudio ? (
-                        '⏹ Stop Audio'
-                      ) : (
-                        '🔊 Play Verse'
-                      )}
-                    </button>
-            
-                    {/* Audio status */}
-                    {studyAudioStatus && (
-                      <span style={{
-                        fontSize: '12px',
-                        color: studyAudioStatus.includes('❌') ? '#dc2626' : '#059669',
-                        fontWeight: '500'
-                      }}>
-                        {studyAudioStatus}
-                      </span>
-                    )}
-            
-                    {/* Autoplay indicator */}
-                    <span style={{
-                      fontSize: '11px',
-                      color: '#6b7280',
-                      backgroundColor: '#f3f4f6',
-                      padding: '2px 6px',
-                      borderRadius: '4px'
-                    }}>
-                      Auto-play: {userSettings.card_autoplay_audio ? 'ON' : 'OFF'}
-                    </span>
+                <button
+                  onClick={() => {
+                    setShowAnswer(true);
+                    // Auto-play audio when showing answer (if enabled)
+                    if (userSettings.card_autoplay_audio) {
+                      setTimeout(() => {
+                        playStudyCardAudio(currentStudyCard, false);
+                      }, 500); // Small delay to let UI update first
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#8b5cf6',
+                    color: 'white',
+                    padding: '16px 40px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                  }}
+                >
+                  Show Answer
+                </button>
+              ) : (
+                <div>
+                  {/* Rating buttons at the bottom */}
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                    {[
+                      { rating: 1, label: 'Again', color: '#dc2626', desc: 'Didn\'t know' },
+                      { rating: 2, label: 'Hard', color: '#ea580c', desc: 'Difficult' },
+                      { rating: 3, label: 'Good', color: '#059669', desc: 'Knew it' },
+                      { rating: 4, label: 'Easy', color: '#2563eb', desc: 'Too easy' }
+                    ].map(button => (
+                      <button
+                        key={button.rating}
+                        onClick={() => handleStudyAnswer(button.rating)}
+                        style={{
+                          backgroundColor: button.color,
+                          color: 'white',
+                          padding: '12px 20px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          minWidth: '90px',
+                          textAlign: 'center'
+                        }}
+                        title={button.desc}
+                      >
+                        <div>{button.label}</div>
+                        <div style={{ fontSize: '10px', opacity: '0.8' }}>{button.desc}</div>
+                      </button>
+                    ))}
                   </div>
-                )}
-            
-                {/* REST OF YOUR EXISTING ANSWER CONTENT GOES HERE */}
-                {/* (Keep all your existing meaning, root, sample sentences, etc.) */}
-            
-                {/* Rating buttons at the bottom */}
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                  {[
-                    { rating: 1, label: 'Again', color: '#dc2626', desc: 'Didn\'t know' },
-                    { rating: 2, label: 'Hard', color: '#ea580c', desc: 'Difficult' },
-                    { rating: 3, label: 'Good', color: '#059669', desc: 'Knew it' },
-                    { rating: 4, label: 'Easy', color: '#2563eb', desc: 'Too easy' }
-                  ].map(button => (
-                    <button
-                      key={button.rating}
-                      onClick={() => handleStudyAnswer(button.rating)}
-                      style={{
-                        backgroundColor: button.color,
-                        color: 'white',
-                        padding: '12px 20px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        minWidth: '90px',
-                        textAlign: 'center'
-                      }}
-                      title={button.desc}
-                    >
-                      <div>{button.label}</div>
-                      <div style={{ fontSize: '10px', opacity: '0.8' }}>{button.desc}</div>
-                    </button>
-                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    };
 
   
   // Reading interface - your existing Quran content
