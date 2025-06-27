@@ -456,6 +456,9 @@ function MainApp({ user }: { user: any }) {
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [playbackQueue, setPlaybackQueue] = useState<any[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+  const [playbackMode, setPlaybackMode] = useState<'single' | 'full' | 'range'>('single');
 
   // community states
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
@@ -778,117 +781,208 @@ function MainApp({ user }: { user: any }) {
       setIsLoadingQuran(false);
     }
   };
-   const playVerseAudio = async (verseNumber: number, globalAyahNumber: number) => {
-    try {
-      console.log('🎵 Playing verse:', verseNumber, 'Global ayah:', globalAyahNumber);
-      
-      // Stop any currently playing audio
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
+   const playVerseAudio = async (verseNumber: number, globalAyahNumber: number, isFromQueue: boolean = false) => {
+      try {
+        console.log('🎵 Playing verse:', verseNumber, 'Global ayah:', globalAyahNumber, 'From queue:', isFromQueue);
+        
+        // Stop any currently playing audio
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+          setCurrentPlayingVerse(null);
+        }
+    
+        if (!globalAyahNumber) {
+          setQuranMessage(`❌ Missing audio data for verse ${verseNumber}`);
+          setTimeout(() => setQuranMessage(''), 3000);
+          return;
+        }
+    
+        setIsLoadingAudio(true);
+        setQuranMessage(`🔄 Loading verse ${verseNumber}...`);
+    
+        // Get audio URL from Al-Quran Cloud API
+        const response = await fetch(`https://api.alquran.cloud/v1/ayah/${globalAyahNumber}/ar.alafasy`);
+        const data = await response.json();
+        
+        console.log('🎵 Audio API Response:', data);
+    
+        if (data.code === 200 && data.data) {
+          const audioUrls = [
+            data.data.audio,
+            ...(data.data.audioSecondary || [])
+          ].filter(Boolean);
+    
+          if (audioUrls.length === 0) {
+            throw new Error('No audio URLs available');
+          }
+    
+          // Try each URL until one works
+          for (let i = 0; i < audioUrls.length; i++) {
+            try {
+              const audioUrl = audioUrls[i];
+              console.log(`🔄 Trying audio URL ${i + 1}: ${audioUrl}`);
+              
+              const audio = new Audio();
+              audio.preload = 'auto';
+              
+              // Test audio loading
+              await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject('Timeout'), 8000);
+                
+                audio.oncanplaythrough = () => {
+                  clearTimeout(timeout);
+                  resolve(true);
+                };
+                
+                audio.onerror = () => {
+                  clearTimeout(timeout);
+                  reject('Load failed');
+                };
+                
+                audio.src = audioUrl;
+              });
+              
+              // SUCCESS! Setup audio events
+              audio.onended = () => {
+                console.log('🎵 Audio ended for verse:', verseNumber);
+                handleAudioEnded();
+              };
+              
+              setCurrentAudio(audio);
+              setCurrentPlayingVerse(verseNumber);
+              
+              // Update message based on playback mode
+              if (playbackMode === 'full') {
+                const queuePosition = currentQueueIndex + 1;
+                const totalVerses = playbackQueue.length;
+                setQuranMessage(`🔊 Playing verse ${verseNumber} (${queuePosition}/${totalVerses})`);
+              } else {
+                setQuranMessage(`🔊 Playing verse ${verseNumber}`);
+              }
+              
+              await audio.play();
+              console.log(`✅ Audio playing from URL ${i + 1}`);
+              return;
+              
+            } catch (error) {
+              console.log(`❌ Audio URL ${i + 1} failed:`, error);
+              continue;
+            }
+          }
+          
+          throw new Error('All audio URLs failed');
+        } else {
+          throw new Error('API returned no audio data');
+        }
+    
+      } catch (error) {
+        console.error('Audio playback failed:', error);
+        
+        // Handle retry for queue playback
+        if (isFromQueue && playbackMode === 'full') {
+          console.log('🔄 Retrying failed verse in queue...');
+          setTimeout(() => {
+            playVerseAudio(verseNumber, globalAyahNumber, true);
+          }, 2000); // Retry after 2 seconds
+          return;
+        }
+        
+        setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
         setCurrentPlayingVerse(null);
+      } finally {
+        setIsLoadingAudio(false);
+        setTimeout(() => {
+          if (quranMessage.includes('❌')) {
+            setQuranMessage('');
+          }
+        }, 5000);
       }
-  
-      if (!globalAyahNumber) {
-        setQuranMessage(`❌ Missing audio data for verse ${verseNumber}`);
+    };
+    const handleAudioEnded = () => {
+      console.log('🎵 handleAudioEnded called, playbackMode:', playbackMode, 'queueIndex:', currentQueueIndex);
+      
+      if (playbackMode === 'full' && playbackQueue.length > 0) {
+        // Check if there are more verses in the queue
+        if (currentQueueIndex + 1 < playbackQueue.length) {
+          // Move to next verse
+          const nextIndex = currentQueueIndex + 1;
+          setCurrentQueueIndex(nextIndex);
+          
+          const nextVerse = playbackQueue[nextIndex];
+          console.log('🎵 Playing next verse in queue:', nextVerse.verse_number);
+          
+          // Small delay before next verse (500ms)
+          setTimeout(() => {
+            playVerseAudio(nextVerse.verse_number, nextVerse.global_ayah_number, true);
+          }, 500);
+        } else {
+          // Queue finished
+          console.log('🎵 Full surah playback completed');
+          setQuranMessage('✅ Full surah playback completed');
+          setPlaybackMode('single');
+          setPlaybackQueue([]);
+          setCurrentQueueIndex(0);
+          setCurrentPlayingVerse(null);
+          setCurrentAudio(null);
+          setTimeout(() => setQuranMessage(''), 3000);
+        }
+      } else {
+        // Single verse mode
+        setCurrentPlayingVerse(null);
+        setCurrentAudio(null);
+        setQuranMessage('');
+      }
+    };
+    const playFullSurah = () => {
+      if (!currentVerses || currentVerses.length === 0) {
+        setQuranMessage('❌ No verses loaded');
         setTimeout(() => setQuranMessage(''), 3000);
         return;
       }
-  
-      setIsLoadingAudio(true);
-      setQuranMessage(`🔄 Loading verse ${verseNumber}...`);
-  
-      // Get audio URL from Al-Quran Cloud API
-      const response = await fetch(`https://api.alquran.cloud/v1/ayah/${globalAyahNumber}/ar.alafasy`);
-      const data = await response.json();
       
-      console.log('🎵 Audio API Response:', data);
-  
-      if (data.code === 200 && data.data) {
-        // Try audio URLs in order of preference
-        const audioUrls = [
-          data.data.audio, // Primary audio URL
-          ...(data.data.audioSecondary || []) // Secondary URLs as backup
-        ].filter(Boolean); // Remove any null/undefined URLs
-  
-        if (audioUrls.length === 0) {
-          throw new Error('No audio URLs available');
-        }
-  
-        // Try each URL until one works
-        for (let i = 0; i < audioUrls.length; i++) {
-          try {
-            const audioUrl = audioUrls[i];
-            console.log(`🔄 Trying audio URL ${i + 1}: ${audioUrl}`);
-            
-            const audio = new Audio();
-            audio.preload = 'auto';
-            
-            // Test audio loading
-            await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => reject('Timeout'), 8000);
-              
-              audio.oncanplaythrough = () => {
-                clearTimeout(timeout);
-                resolve(true);
-              };
-              
-              audio.onerror = () => {
-                clearTimeout(timeout);
-                reject('Load failed');
-              };
-              
-              audio.src = audioUrl;
-            });
-            
-            // Success! Setup and play
-            audio.onended = () => {
-              setCurrentPlayingVerse(null);
-              setCurrentAudio(null);
-              setQuranMessage('');
-            };
-            
-            setCurrentAudio(audio);
-            setCurrentPlayingVerse(verseNumber);
-            setQuranMessage(`🔊 Playing verse ${verseNumber}`);
-            
-            await audio.play();
-            console.log(`✅ Audio playing from URL ${i + 1}`);
-            return; // Exit on success
-            
-          } catch (error) {
-            console.log(`❌ Audio URL ${i + 1} failed:`, error);
-            continue; // Try next URL
-          }
-        }
-        
-        throw new Error('All audio URLs failed');
-      } else {
-        throw new Error('API returned no audio data');
+      console.log('🎵 Starting full surah playback...');
+      
+      // Find starting verse index (current single verse view or verse 1)
+      let startIndex = 0;
+      if (quranViewMode === 'single' && currentVerseIndex < currentVerses.length) {
+        startIndex = currentVerseIndex;
       }
+      
+      // Create queue from current verse to end of surah
+      const queue = currentVerses.slice(startIndex);
+      
+      setPlaybackQueue(queue);
+      setCurrentQueueIndex(0);
+      setPlaybackMode('full');
+      setIsPlayingContinuous(true);
+      
+      // Start playing first verse in queue
+      const firstVerse = queue[0];
+      console.log('🎵 Starting with verse:', firstVerse.verse_number);
+      setQuranMessage(`🎵 Starting full surah from verse ${firstVerse.verse_number}...`);
+      
+      playVerseAudio(firstVerse.verse_number, firstVerse.global_ayah_number, true);
+    };
   
-    } catch (error) {
-      console.error('Audio playback failed:', error);
-      setQuranMessage(`❌ Audio failed for verse ${verseNumber}`);
-      setCurrentPlayingVerse(null);
-    } finally {
-      setIsLoadingAudio(false);
-      setTimeout(() => {
-        if (quranMessage.includes('❌')) {
-          setQuranMessage('');
-        }
-      }, 5000);
-    }
-  };
   const stopAudio = () => {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setCurrentAudio(null);
-    }
-    setCurrentPlayingVerse(null);
-    setQuranMessage('');
-  };
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        setCurrentAudio(null);
+      }
+      
+      // Reset all playback states
+      setCurrentPlayingVerse(null);
+      setIsPlayingContinuous(false);
+      setPlaybackMode('single');
+      setPlaybackQueue([]);
+      setCurrentQueueIndex(0);
+      setQuranMessage('');
+      
+      console.log('🎵 Audio stopped and all states reset');
+    };
+  
     // Navigation functions for single verse mode
   const goToNextVerse = () => {
     if (currentVerseIndex < currentVerses.length - 1) {
@@ -4180,26 +4274,26 @@ function MainApp({ user }: { user: any }) {
             {/* Play/Stop Button */}
             <button
               onClick={() => {
-                if (isPlayingContinuous || currentPlayingVerse) {
+                if (playbackMode === 'full' || isPlayingContinuous) {
                   stopAudio();
                 } else {
-                  // Simple: just remove all this complex logic
-                  setQuranMessage('🎵 Use verse numbers to play audio');
-                  setTimeout(() => setQuranMessage(''), 2000);
+                  playFullSurah();
                 }
               }}
+              disabled={isLoadingAudio || !currentVerses || currentVerses.length === 0}
               style={{
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                padding: '6px 12px',
+                backgroundColor: (playbackMode === 'full' || isPlayingContinuous) ? '#dc2626' : '#059669',
+                color: 'white',
+                padding: '8px 16px',
                 borderRadius: '6px',
                 border: 'none',
                 fontSize: '12px',
                 fontWeight: '600',
-                cursor: 'pointer'
+                cursor: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 'not-allowed' : 'pointer',
+                opacity: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 0.6 : 1
               }}
             >
-              Click verse numbers to play
+              {playbackMode === 'full' || isPlayingContinuous ? '⏹ Stop Full Surah' : '▶ Play Full Surah'}
             </button>
         </div>
 
@@ -4560,34 +4654,80 @@ function MainApp({ user }: { user: any }) {
             
             {/* Audio Controls for Full Surah */}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', alignItems: 'center' }}>
-                <button
-                onClick={() => console.log('Full surah play removed')}
-                disabled={isPlayingContinuous}
-                style={{
-                    backgroundColor: isPlayingContinuous ? '#dc2626' : '#059669',
-                    color: 'white',
-                    padding: '8px 16px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
+              <button
+                onClick={() => {
+                  if (playbackMode === 'full' || isPlayingContinuous) {
+                    stopAudio();
+                  } else {
+                    playFullSurah();
+                  }
                 }}
-                >
-                {isPlayingContinuous ? '⏹ Stop Full Surah' : '▶ Play Full Surah'}
-                </button>
-                
-                {isPlayingContinuous && (
-                <span style={{ 
+                disabled={isLoadingAudio || !currentVerses || currentVerses.length === 0}
+                style={{
+                  backgroundColor: (playbackMode === 'full' || isPlayingContinuous) ? '#dc2626' : '#059669',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 'not-allowed' : 'pointer',
+                  opacity: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 0.6 : 1
+                }}
+              >
+                {playbackMode === 'full' || isPlayingContinuous ? '⏹ Stop Full Surah' : '▶ Play Full Surah'}
+              </button>
+              
+              {/* Enhanced Progress Display */}
+              {playbackMode === 'full' && playbackQueue.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ 
                     fontSize: '12px', 
                     color: '#059669',
                     backgroundColor: '#f0fdf4',
                     padding: '4px 8px',
                     borderRadius: '4px'
-                }}>
+                  }}>
                     🎵 Playing verse {currentPlayingVerse}
-                </span>
-                )}
+                  </span>
+                  <span style={{ 
+                    fontSize: '11px', 
+                    color: '#6b7280',
+                    backgroundColor: '#f3f4f6',
+                    padding: '2px 6px',
+                    borderRadius: '4px'
+                  }}>
+                    {currentQueueIndex + 1} / {playbackQueue.length}
+                  </span>
+                </div>
+              )}
+              
+              {/* Pause/Resume Button (for future enhancement) */}
+              {playbackMode === 'full' && currentAudio && (
+                <button
+                  onClick={() => {
+                    if (currentAudio.paused) {
+                      currentAudio.play();
+                      setQuranMessage(`🔊 Resumed verse ${currentPlayingVerse}`);
+                    } else {
+                      currentAudio.pause();
+                      setQuranMessage(`⏸ Paused verse ${currentPlayingVerse}`);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#f59e0b',
+                    color: 'white',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {currentAudio.paused ? '▶ Resume' : '⏸ Pause'}
+                </button>
+              )}
             </div>
             </div>
         </div>
