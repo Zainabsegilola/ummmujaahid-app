@@ -901,6 +901,10 @@ function MainApp({ user }: { user: any }) {
     };
     const handleAudioEnded = () => {
       console.log('🎵 handleAudioEnded called, playbackMode:', playbackMode, 'queueIndex:', currentQueueIndex);
+      console.log('🔥 handleAudioEnded called!');
+      console.log('🔥 playbackMode:', playbackMode);
+      console.log('🔥 queue length:', playbackQueue.length);
+      console.log('🔥 currentQueueIndex:', currentQueueIndex);
       
       if (playbackMode === 'full' && playbackQueue.length > 0) {
         // Check if there are more verses in the queue
