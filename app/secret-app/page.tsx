@@ -32,7 +32,7 @@ import {
   saveYouTubeTranslationCache,
   getQuranAudioCache,
   saveQuranAudioCache,
-  playStudyCardAudio,
+  fetchStudyCardAudio,
   getUserSettings,
   updateUserSettings
 } from '@/lib/database'
@@ -700,7 +700,7 @@ function MainApp({ user }: { user: any }) {
       setStudyAudioStatus('🔄 Loading verse audio...');
   
       // Use our cache-enabled function
-      const audio = await playStudyCardAudio(card.global_ayah_number, setStudyAudioStatus);
+      const audio = await fetchStudyCardAudio(card.global_ayah_number, setStudyAudioStatus);
       
       setStudyCardAudio(audio);
       setIsStudyAudioLoading(false);
