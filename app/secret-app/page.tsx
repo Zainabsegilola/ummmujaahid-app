@@ -32,7 +32,9 @@ import {
   saveYouTubeTranslationCache,
   getQuranAudioCache,
   saveQuranAudioCache,
-  playStudyCardAudio
+  playStudyCardAudio,
+  getUserSettings,
+  updateUserSettings
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
