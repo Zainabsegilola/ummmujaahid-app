@@ -674,6 +674,33 @@ function MainApp({ user }: { user: any }) {
     }
   };
   const playStudyCardAudio = async (card, force = false) => {
+
+    console.log('🔍 Audio Debug:', {
+    cardId: card?.id,
+    global_ayah_number: card?.global_ayah_number,
+    surah_number: card?.surah_number,
+    verse_number: card?.verse_number,
+    source_type: card?.source_type,
+    force: force,
+    autoplayEnabled: userSettings.card_autoplay_audio
+  });
+
+  // Only play if autoplay is enabled OR user manually clicked (force = true)
+  if (!force && !userSettings.card_autoplay_audio) {
+    console.log('❌ Audio skipped - autoplay disabled and not forced');
+    return;
+  }
+
+  // Only works for Quran cards
+  if (!card.global_ayah_number || !card.surah_number || !card.verse_number) {
+    console.log('❌ Missing required fields for audio');
+    if (force) {
+      setStudyAudioStatus('❌ No audio available for this card');
+      setTimeout(() => setStudyAudioStatus(''), 3000);
+    }
+    return;
+  }
+  
   // Only play if autoplay is enabled OR user manually clicked (force = true)
     if (!force && !userSettings.card_autoplay_audio) {
       return;
