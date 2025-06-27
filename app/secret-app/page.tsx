@@ -424,6 +424,9 @@ function MainApp({ user }: { user: any }) {
   const [showAnswer, setShowAnswer] = useState(false);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [studyDeck, setStudyDeck] = useState<any>(null);
+  const [studyCardAudio, setStudyCardAudio] = useState(null);
+  const [isStudyAudioLoading, setIsStudyAudioLoading] = useState(false);
+  const [studyAudioStatus, setStudyAudioStatus] = useState('');
 
   // Modal states
   const [showCardModal, setShowCardModal] = useState(false);
@@ -670,7 +673,67 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setManagementMessage(''), 3000);
     }
   };
-
+  const playStudyCardAudio = async (card, force = false) => {
+  // Only play if autoplay is enabled OR user manually clicked (force = true)
+    if (!force && !userSettings.card_autoplay_audio) {
+      return;
+    }
+  
+    // Only works for Quran cards
+    if (!card.global_ayah_number || !card.surah_number || !card.verse_number) {
+      if (force) {
+        setStudyAudioStatus('❌ No audio available for this card');
+        setTimeout(() => setStudyAudioStatus(''), 3000);
+      }
+      return;
+    }
+  
+    try {
+      // Stop any currently playing audio
+      if (studyCardAudio) {
+        studyCardAudio.pause();
+        studyCardAudio.currentTime = 0;
+        setStudyCardAudio(null);
+      }
+  
+      setIsStudyAudioLoading(true);
+      setStudyAudioStatus('🔄 Loading verse audio...');
+  
+      // Use our cache-enabled function
+      const audio = await playStudyCardAudio(card.global_ayah_number, setStudyAudioStatus);
+      
+      setStudyCardAudio(audio);
+      setIsStudyAudioLoading(false);
+  
+      // Handle audio end
+      audio.onended = () => {
+        setStudyCardAudio(null);
+        setStudyAudioStatus('');
+      };
+  
+      audio.onerror = () => {
+        setStudyCardAudio(null);
+        setIsStudyAudioLoading(false);
+        setStudyAudioStatus('❌ Audio playback failed');
+        setTimeout(() => setStudyAudioStatus(''), 3000);
+      };
+  
+    } catch (error) {
+      console.error('Study card audio error:', error);
+      setIsStudyAudioLoading(false);
+      setStudyAudioStatus('❌ Audio failed to load');
+      setTimeout(() => setStudyAudioStatus(''), 3000);
+    }
+  };
+  const stopStudyAudio = () => {
+    if (studyCardAudio) {
+      studyCardAudio.pause();
+      studyCardAudio.currentTime = 0;
+      setStudyCardAudio(null);
+    }
+    setStudyAudioStatus('');
+    setIsStudyAudioLoading(false);
+  };
   // Undo delete action
   const handleUndo = async () => {
     if (!undoAction) return;
@@ -2714,37 +2777,37 @@ function MainApp({ user }: { user: any }) {
     if (!currentStudyCard || !user?.id) return;
     
     try {
-        // reviewCard returns { data, error }, not a thrown exception
-        const result = await reviewCard(currentStudyCard.id, rating, user.id);
-        
-        if (result.error) {
+      // Stop any playing audio
+      stopStudyAudio();
+      
+      // reviewCard returns { data, error }, not a thrown exception
+      const result = await reviewCard(currentStudyCard.id, rating, user.id);
+      
+      if (result.error) {
         console.error('Error reviewing card:', result.error);
         setCardMessage(`❌ Error: ${result.error.message || 'Failed to review card'}`);
         setTimeout(() => setCardMessage(''), 3000);
         return;
-        }
-        
-        // Success - move to next card
-        if (studyCardIndex + 1 < studyCards.length) {
+      }
+      
+      // Success - move to next card
+      if (studyCardIndex + 1 < studyCards.length) {
         setStudyCardIndex(studyCardIndex + 1);
         setCurrentStudyCard(studyCards[studyCardIndex + 1]);
         setShowAnswer(false);
         setShowMoreDetails(false);
-        } else {
+      } else {
         setCardMessage('🎉 Study session complete!');
         setTimeout(() => setCardMessage(''), 3000);
+        stopStudyAudio();
         setIsStudying(false);
         await loadUserDecks();
-        }
+      }
     } catch (error) {
-        console.error('Unexpected error in handleStudyAnswer:', error);
-        setCardMessage('❌ Unexpected error occurred');
-        setTimeout(() => setCardMessage(''), 3000);
+      console.error('Unexpected error in handleStudyAnswer:', error);
+      setCardMessage('❌ Unexpected error occurred');
+      setTimeout(() => setCardMessage(''), 3000);
     }
-   };
-
-  const handleSegmentClick = (timestamp: number) => {
-    seekTo(timestamp);
   };
 
   // Render functions
@@ -4416,23 +4479,111 @@ function MainApp({ user }: { user: any }) {
     
               {/* Action buttons */}
               {!showAnswer ? (
-                <button
-                  onClick={() => setShowAnswer(true)}
-                  style={{
-                    backgroundColor: '#8b5cf6',
-                    color: 'white',
-                    padding: '16px 40px',
-                    borderRadius: '12px',
-                    border: 'none',
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
-                  }}
-                >
-                  Show Answer
-                </button>
-              ) : (
+              <button
+                onClick={() => {
+                  setShowAnswer(true);
+                  // Auto-play audio when showing answer (if enabled)
+                  if (userSettings.card_autoplay_audio) {
+                    setTimeout(() => {
+                      playStudyCardAudio(currentStudyCard, false);
+                    }, 500); // Small delay to let UI update first
+                  }
+                }}
+                style={{
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  padding: '16px 40px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+                }}
+              >
+                Show Answer
+              </button>
+            ) : (
+              <div>
+                {/* AUDIO CONTROLS SECTION - Add this right after the Arabic word display */}
+                {currentStudyCard.surah_number && (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '20px',
+                    padding: '12px',
+                    backgroundColor: '#f0fdf4',
+                    borderRadius: '8px',
+                    border: '1px solid #d1fae5'
+                  }}>
+                    <button
+                      onClick={() => playStudyCardAudio(currentStudyCard, true)}
+                      disabled={isStudyAudioLoading}
+                      style={{
+                        backgroundColor: studyCardAudio ? '#dc2626' : '#059669',
+                        color: 'white',
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        cursor: isStudyAudioLoading ? 'not-allowed' : 'pointer',
+                        opacity: isStudyAudioLoading ? 0.6 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {isStudyAudioLoading ? (
+                        <>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '12px',
+                            height: '12px',
+                            border: '2px solid white',
+                            borderTop: '2px solid transparent',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                          }}></span>
+                          Loading...
+                        </>
+                      ) : studyCardAudio ? (
+                        '⏹ Stop Audio'
+                      ) : (
+                        '🔊 Play Verse'
+                      )}
+                    </button>
+            
+                    {/* Audio status */}
+                    {studyAudioStatus && (
+                      <span style={{
+                        fontSize: '12px',
+                        color: studyAudioStatus.includes('❌') ? '#dc2626' : '#059669',
+                        fontWeight: '500'
+                      }}>
+                        {studyAudioStatus}
+                      </span>
+                    )}
+            
+                    {/* Autoplay indicator */}
+                    <span style={{
+                      fontSize: '11px',
+                      color: '#6b7280',
+                      backgroundColor: '#f3f4f6',
+                      padding: '2px 6px',
+                      borderRadius: '4px'
+                    }}>
+                      Auto-play: {userSettings.card_autoplay_audio ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                )}
+            
+                {/* REST OF YOUR EXISTING ANSWER CONTENT GOES HERE */}
+                {/* (Keep all your existing meaning, root, sample sentences, etc.) */}
+            
+                {/* Rating buttons at the bottom */}
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                   {[
                     { rating: 1, label: 'Again', color: '#dc2626', desc: 'Didn\'t know' },
@@ -4462,12 +4613,9 @@ function MainApp({ user }: { user: any }) {
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    };
+              </div>
+            )}
+
   
   // Reading interface - your existing Quran content
   const renderQuranReading = () => (
