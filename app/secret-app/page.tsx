@@ -4809,94 +4809,46 @@ function MainApp({ user }: { user: any }) {
             fontFamily: 'Arial, sans-serif',
             direction: 'rtl',
             color: '#8b5cf6',
-            borderBottom: '1px solid #f3f4f6',
-            wordWrap: 'break-word',
-            overflowWrap: 'break-word'
+            borderBottom: '1px solid #f3f4f6'
           }}>
             بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
           </div>
         )}
   
-        {/* Verses in Mushaf Style - OPTIMIZED */}
+        {/* AUTHENTIC MUSHAF VERSES LAYOUT */}
         <div style={{ 
-          padding: 'clamp(20px, 4vw, 30px) clamp(15px, 3vw, 40px) clamp(30px, 5vw, 40px) clamp(15px, 3vw, 40px)',
-          fontSize: 'clamp(1.2rem, 3.5vw, 2rem)', 
-          lineHeight: '1.7', // Optimized for authentic Mushaf spacing
-          direction: 'rtl',
-          fontFamily: 'Arial, sans-serif',
-          textAlign: 'justify',
-          backgroundColor: '#fdfdfd',
-          wordWrap: 'break-word',
-          overflowWrap: 'break-word',
-          hyphens: 'auto',
-          maxWidth: '100%',
-          boxSizing: 'border-box'
+          padding: 'clamp(20px, 4vw, 30px)',
+          maxWidth: '900px', // Prevent overflow on large screens
+          margin: '0 auto', // Center the content
+          backgroundColor: '#fdfdfd'
         }}>
           {currentVerses.map((verse, index) => (
-            <span key={`verse-${verse.verse_number}`}>
-              {/* Verse Text */}
-              <span style={{ 
-                backgroundColor: currentPlayingVerse === verse.verse_number ? 'rgba(139, 92, 246, 0.1)' : 'transparent',
-                borderRadius: currentPlayingVerse === verse.verse_number ? '4px' : '0',
-                padding: currentPlayingVerse === verse.verse_number ? '2px 4px' : '0',
-                transition: 'all 0.3s ease',
-                display: 'inline',
-                wordBreak: 'break-word',
-                overflowWrap: 'break-word'
-              }}>
-                {verse.text_arabic ? (
-                  verse.text_arabic.split(' ').map((word, wordIndex) => (
-                    <span
-                      key={`word-${verse.verse_number}-${wordIndex}`}
-                      style={{
-                        cursor: 'pointer',
-                        padding: '1px 2px',
-                        borderRadius: '3px',
-                        display: 'inline',
-                        margin: '0 1px',
-                        wordBreak: 'keep-all',
-                        whiteSpace: 'nowrap'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                      onDoubleClick={() => handleQuranWordDoubleClick(
-                        word, 
-                        verse.surah_id, 
-                        verse.verse_number, 
-                        wordIndex + 1, 
-                        verse.text_arabic
-                      )}
-                      title={`Double-click to add "${word}" to flashcards`}
-                    >
-                      {word}
-                    </span>
-                  ))
-                ) : (
-                  <span style={{ color: '#dc2626', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)' }}>
-                    [Verse {verse.verse_number} - text unavailable]
-                  </span>
-                )}
-              </span>
-  
-              {/* Verse Number in Circle (Traditional Style) - RESPONSIVE */}
+            <div key={`verse-${verse.verse_number}`} style={{
+              marginBottom: 'clamp(8px, 1.5vw, 12px)', // Minimal spacing between verses
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 'clamp(8px, 1.5vw, 12px)',
+              direction: 'rtl'
+            }}>
+              
+              {/* Verse Number - Authentic Style (Small, before verse) */}
               <span
                 style={{
                   display: 'inline-block',
-                  width: 'clamp(24px, 4vw, 32px)',
-                  height: 'clamp(24px, 4vw, 32px)',
+                  minWidth: 'clamp(20px, 3vw, 24px)',
+                  height: 'clamp(20px, 3vw, 24px)',
                   backgroundColor: currentPlayingVerse === verse.verse_number ? '#8b5cf6' : '#f3f4f6',
                   color: currentPlayingVerse === verse.verse_number ? 'white' : '#6b7280',
                   borderRadius: '50%',
                   textAlign: 'center',
-                  lineHeight: 'clamp(24px, 4vw, 32px)',
-                  fontSize: 'clamp(0.6rem, 2.2vw, 0.875rem)',
+                  lineHeight: 'clamp(20px, 3vw, 24px)',
+                  fontSize: 'clamp(0.6rem, 1.8vw, 0.75rem)',
                   fontWeight: '600',
-                  margin: '0 clamp(4px, 1vw, 8px)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
-                  border: '2px solid ' + (currentPlayingVerse === verse.verse_number ? '#8b5cf6' : '#e5e7eb'),
+                  border: '1px solid ' + (currentPlayingVerse === verse.verse_number ? '#8b5cf6' : '#d1d5db'),
                   flexShrink: 0,
-                  verticalAlign: 'baseline'
+                  marginTop: '2px' // Slight alignment with text
                 }}
                 onClick={() => playVerseAudio(verse.verse_number, verse.global_ayah_number)}
                 onMouseEnter={(e) => {
@@ -4913,43 +4865,91 @@ function MainApp({ user }: { user: any }) {
               >
                 {verse.verse_number}
               </span>
-              
-              {/* Translation below verse (if enabled) - RESPONSIVE */}
-              {quranSettings.show_translation && (
-                <div style={{
-                  display: 'block',
-                  width: '100%',
-                  fontSize: 'clamp(0.8rem, 2.5vw, 1rem)',
-                  color: '#374151',
-                  fontStyle: 'italic',
-                  lineHeight: '1.6',
-                  textAlign: 'left',
-                  direction: 'ltr',
-                  margin: 'clamp(8px, 2vw, 12px) 0 clamp(12px, 3vw, 20px) 0',
-                  padding: 'clamp(8px, 2vw, 12px) clamp(10px, 2.5vw, 16px)',
-                  backgroundColor: '#f0fdf4',
-                  border: '1px solid #d1fae5',
-                  borderRadius: '6px',
+  
+              {/* Verse Text Container */}
+              <div style={{ flex: '1', minWidth: 0 }}> {/* minWidth: 0 allows proper text wrapping */}
+                
+                {/* Arabic Text - Authentic Mushaf Style */}
+                <div style={{ 
+                  fontSize: 'clamp(1.1rem, 3vw, 1.8rem)', 
+                  lineHeight: '1.5', // Tight like book text
+                  direction: 'rtl',
+                  fontFamily: 'Arial, sans-serif',
+                  textAlign: 'right', // Right-aligned, not justified
+                  backgroundColor: currentPlayingVerse === verse.verse_number ? 'rgba(139, 92, 246, 0.08)' : 'transparent',
+                  padding: currentPlayingVerse === verse.verse_number ? 'clamp(4px, 1vw, 6px) clamp(6px, 1.5vw, 8px)' : '0',
+                  borderRadius: currentPlayingVerse === verse.verse_number ? '4px' : '0',
+                  transition: 'all 0.3s ease',
                   wordWrap: 'break-word',
-                  overflowWrap: 'break-word'
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
+                  hyphens: 'auto',
+                  maxWidth: '100%'
                 }}>
-                  <span style={{ 
-                    fontSize: 'clamp(0.5rem, 1.8vw, 0.6875rem)', 
-                    fontWeight: '600', 
-                    color: '#059669',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>
-                    Verse {verse.verse_number}:
-                  </span>
-                  <br />
-                  {verse.text_translation || 'Translation loading...'}
+                  {verse.text_arabic ? (
+                    verse.text_arabic.split(' ').map((word, wordIndex) => (
+                      <span
+                        key={`word-${verse.verse_number}-${wordIndex}`}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '1px 2px',
+                          borderRadius: '2px',
+                          display: 'inline',
+                          margin: '0 1px',
+                          transition: 'background-color 0.15s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        onDoubleClick={() => handleQuranWordDoubleClick(
+                          word, 
+                          verse.surah_id, 
+                          verse.verse_number, 
+                          wordIndex + 1, 
+                          verse.text_arabic
+                        )}
+                        title={`Double-click to add "${word}" to flashcards`}
+                      >
+                        {word}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: '#dc2626', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)' }}>
+                      [Verse {verse.verse_number} - text unavailable]
+                    </span>
+                  )}
                 </div>
-              )}
-              
-              {/* Minimal space between verses (authentic Mushaf style) */}
-              {index < currentVerses.length - 1 && <span style={{ margin: '0 clamp(2px, 0.5vw, 4px)' }}> </span>}
-            </span>
+                
+                {/* Translation (if enabled) - Compact Style */}
+                {quranSettings.show_translation && (
+                  <div style={{
+                    fontSize: 'clamp(0.75rem, 2.2vw, 0.9rem)',
+                    color: '#374151',
+                    fontStyle: 'italic',
+                    lineHeight: '1.4',
+                    textAlign: 'left',
+                    direction: 'ltr',
+                    marginTop: 'clamp(4px, 1vw, 6px)',
+                    padding: 'clamp(6px, 1.5vw, 8px) clamp(8px, 2vw, 10px)',
+                    backgroundColor: '#f8fffe',
+                    border: '1px solid #e6fffa',
+                    borderRadius: '4px',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word'
+                  }}>
+                    <span style={{ 
+                      fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)', 
+                      fontWeight: '600', 
+                      color: '#047857',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px'
+                    }}>
+                      {verse.verse_number}:
+                    </span>{' '}
+                    {verse.text_translation || 'Translation loading...'}
+                  </div>
+                )}
+              </div>
+            </div>
           ))}
         </div>
   
@@ -4980,7 +4980,7 @@ function MainApp({ user }: { user: any }) {
               color: '#065f46',
               whiteSpace: 'nowrap'
             }}>
-              📄 Page view • {currentVerses.length} verses
+              📄 Mushaf view • {currentVerses.length} verses
             </div>
           </div>
         </div>
