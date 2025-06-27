@@ -27,7 +27,9 @@ import {
   softDeleteDeck,
   restoreDeletedDeck,
   getQuranTranslationCache,        
-  saveQuranTranslationCache  
+  saveQuranTranslationCache,
+  getYouTubeTranslationCache,   
+  saveYouTubeTranslationCache   
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
@@ -1921,28 +1923,58 @@ function MainApp({ user }: { user: any }) {
     const enhancedContext = getEnhancedYouTubeContext();
     
     setIsAddingCard(true);
-    setCardMessage('🔄 Creating enhanced Arabic analysis...');
+    setCardMessage('🔄 Checking cache for enhanced analysis...');
   
     try {
-      // ENHANCED API CALL
-      const translationData = await fetchEnhancedTranslation(
-        cleanWord, 
-        enhancedContext, 
-        'youtube', 
-        {
-          videoTitle: currentVideoTitle,
-          timestamp: word.timestamp
-        }
+      // STEP 1: Check if YouTube translation is cached
+      const cachedTranslation = await getYouTubeTranslationCache(
+        cleanWord,
+        currentVideoId,
+        word.segmentStart  // Use segment start time as cache key
       );
-      
-      if (translationData) {
-        setCardMessage('🔄 Enhanced translation received, saving card...');
-        console.log('Enhanced YouTube translation:', translationData);
+  
+      let translationData = null;
+  
+      if (cachedTranslation) {
+        // CACHE HIT: Use existing translation
+        setCardMessage('✅ Found cached translation, creating your card...');
+        translationData = cachedTranslation;
+        console.log('🎯 Using cached YouTube translation:', translationData);
       } else {
-        setCardMessage('🔄 Translation failed, saving card without enhanced data...');
+        // CACHE MISS: Call API and cache the result
+        setCardMessage('🔄 Creating new enhanced Arabic analysis...');
+  
+        // ENHANCED API CALL
+        translationData = await fetchEnhancedTranslation(
+          cleanWord, 
+          enhancedContext, 
+          'youtube', 
+          {
+            videoTitle: currentVideoTitle,
+            timestamp: word.timestamp
+          }
+        );
+        
+        if (translationData) {
+          setCardMessage('🔄 Enhanced analysis received, caching for future users...');
+          console.log('✨ New enhanced YouTube translation:', translationData);
+          
+          // STEP 2: Save to cache for future users
+          await saveYouTubeTranslationCache(
+            cleanWord,
+            currentVideoId,
+            word.segmentStart,  // Use segment start time
+            translationData,
+            currentVideoTitle
+          );
+          
+          setCardMessage('🔄 Translation cached, saving your card...');
+        } else {
+          setCardMessage('🔄 Translation failed, saving card without enhanced data...');
+        }
       }
   
-      // Save card with enhanced translation data
+      // STEP 3: Save card with translation data (cached or new)
       const result = await addCardToDeck(
         currentDeck.id,
         cleanWord,
@@ -1954,7 +1986,7 @@ function MainApp({ user }: { user: any }) {
   
       if (result.error) {
         if (result.error.message?.includes('duplicate key')) {
-          setCardMessage(`ℹ️ "${cleanWord}" already in deck`);
+          setCardMessage(`ℹ️ "${cleanWord}" already in your deck`);
         } else {
           setCardMessage(`❌ Error: ${result.error.message}`);
         }
