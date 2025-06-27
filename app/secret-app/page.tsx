@@ -1480,6 +1480,25 @@ function MainApp({ user }: { user: any }) {
         user.id,
         translationData
       );
+      if (result.error) {
+        if (result.error.message?.includes('duplicate key')) {
+          setQuranMessage(`ℹ️ "${cleanWord}" already in your deck`);
+        } else {
+          setQuranMessage(`❌ Error: ${result.error.message}`);
+        }
+      } else {
+        const message = translationData 
+          ? `✅ Added "${cleanWord}" with enhanced analysis!`
+          : `✅ Added "${cleanWord}" (analysis will be added later)`;
+        setQuranMessage(message);
+        await loadUserDecks();
+      }
+    } catch (error: any) {
+      setQuranMessage(`❌ Failed: ${error.message}`);
+    } finally {
+      setTimeout(() => setQuranMessage(''), 4000);
+    }
+  }; 
   // Load user Quran settings
   const loadQuranSettings = async () => {
     if (!user?.id) return;
