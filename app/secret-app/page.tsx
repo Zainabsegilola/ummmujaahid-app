@@ -26,7 +26,8 @@ import {
   updateCardContent,
   softDeleteDeck,
   restoreDeletedDeck,
-     
+  getQuranTranslationCache,        
+  saveQuranTranslationCache  
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
