@@ -447,6 +447,7 @@ function MainApp({ user }: { user: any }) {
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [quranView, setQuranView] = useState('main'); // 'main', 'surah-library', 'reading'
   const quranContainerRef = useRef<HTMLDivElement>(null);
   const [selectedSurahNumber, setSelectedSurahNumber] = useState(1);
   const [playMode, setPlayMode] = useState('single'); // 'single', 'range', 'full'
@@ -771,10 +772,10 @@ function MainApp({ user }: { user: any }) {
         
         const surah = surahs.find(s => s.number === surahNumber);
         setCurrentSurah(surah);
-        
-        // Create or get deck for this surah
-        if (user?.id && surah) {
-          const { data: deck } = await createSurahDeck(surah.name_english, surahNumber, user.id);
+    
+        // Create deck only when user clicks word (if doesn't exist)
+        if (!quranDeck?.id && user?.id && currentSurah) {
+          const { data: deck } = await createSurahDeck(currentSurah.name_english, surahNumber, user.id);
           setQuranDeck(deck);
         }
         
@@ -1449,14 +1450,28 @@ function MainApp({ user }: { user: any }) {
           setQuranMessage('🔄 Analysis failed, saving card without enhanced data...');
         }
       }
-  
-      // Enhanced context with Surah info for the card
+
       const surahName = currentSurah?.name_english || 'Unknown Surah';
       const enhancedContext = `Surah ${surahName} (${surahNumber}), Verse ${verseNumber}: ${verseText}`;
-  
-      // STEP 3: Save Quran card with translation data (cached or new)
+      
+      // STEP 3: Create deck if it doesn't exist, then save card
+      let deckToUse = quranDeck;
+      if (!deckToUse?.id && user?.id && currentSurah) {
+        setQuranMessage('🔄 Creating deck for this surah...');
+        const { data: deck } = await createSurahDeck(currentSurah.name_english, surahNumber, user.id);
+        setQuranDeck(deck);
+        deckToUse = deck;
+      }
+      
+      if (!deckToUse?.id) {
+        setQuranMessage('❌ Could not create deck');
+        setTimeout(() => setQuranMessage(''), 3000);
+        return;
+      }
+      
+      // Now save the card
       const result = await addQuranCard(
-        quranDeck.id,
+        deckToUse.id,  // ← Use the deck we just created
         cleanWord,
         surahNumber,
         verseNumber,
@@ -1465,26 +1480,6 @@ function MainApp({ user }: { user: any }) {
         user.id,
         translationData
       );
-  
-      if (result.error) {
-        if (result.error.message?.includes('duplicate key')) {
-          setQuranMessage(`ℹ️ "${cleanWord}" already in your deck`);
-        } else {
-          setQuranMessage(`❌ Error: ${result.error.message}`);
-        }
-      } else {
-        const message = translationData 
-          ? `✅ Added "${cleanWord}" with enhanced Quranic analysis!`
-          : `✅ Added "${cleanWord}" (analysis will be added later)`;
-        setQuranMessage(message);
-        await loadUserDecks();
-      }
-    } catch (error) {
-      setQuranMessage(`❌ Failed: ${error.message}`);
-    } finally {
-      setTimeout(() => setQuranMessage(''), 4000);
-    }
-  };
   // Load user Quran settings
   const loadQuranSettings = async () => {
     if (!user?.id) return;
@@ -1801,11 +1796,11 @@ function MainApp({ user }: { user: any }) {
     console.log('📊 Updated playbackStateRef:', playbackStateRef.current);
   }, [playbackMode, playbackQueue, currentQueueIndex, isPlayingContinuous]);
 
-  useEffect(() => {
+  /*useEffect(() => {
     if (selectedSurahNumber && surahs.length > 0) {
       loadSurahVerses(selectedSurahNumber);
     }
-  }, [selectedSurahNumber, surahs]);
+  }, [selectedSurahNumber, surahs]);*/
   
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -4111,16 +4106,267 @@ function MainApp({ user }: { user: any }) {
         </div>
       );
     };
-         
+  
+  // Reading interface - your existing Quran content
+  const renderQuranReading = () => (
+    <div>
+      {/* Controls (moved from renderQuranContent) */}
+      <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', marginBottom: '16px' }}>
+        
+        {/* View Mode Toggle */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', backgroundColor: '#f3f4f6', borderRadius: '6px', padding: '2px' }}>
+            <button
+              onClick={() => setQuranViewMode('single')}
+              style={{
+                padding: '6px 12px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '600',
+                backgroundColor: quranViewMode === 'single' ? '#8b5cf6' : 'transparent',
+                color: quranViewMode === 'single' ? 'white' : '#374151',
+                cursor: 'pointer'
+              }}
+            >
+              📄 Single Verse
+            </button>
+            <button
+              onClick={() => setQuranViewMode('full')}
+              style={{
+                padding: '6px 12px',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '600',
+                backgroundColor: quranViewMode === 'full' ? '#8b5cf6' : 'transparent',
+                color: quranViewMode === 'full' ? 'white' : '#374151',
+                cursor: 'pointer'
+              }}
+            >
+              📖 Mushaf Page
+            </button>
+          </div>
+  
+          {/* Translation Toggle */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label style={{ fontSize: '12px', fontWeight: '600', color: '#374151' }}>
+              <input
+                type="checkbox"
+                checked={quranSettings.show_translation}
+                onChange={(e) => setQuranSettings(prev => ({ 
+                  ...prev, 
+                  show_translation: e.target.checked 
+                }))}
+                style={{ marginRight: '6px' }}
+              />
+              Show Translation
+            </label>
+          </div>
+        </div>
+  
+        {/* Audio Controls */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: '#374151', minWidth: '80px' }}>
+            🎵 Play Mode:
+          </span>
+          
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              onClick={() => setPlayMode('single')}
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '4px',
+                fontSize: '11px',
+                backgroundColor: playMode === 'single' ? '#059669' : 'white',
+                color: playMode === 'single' ? 'white' : '#374151',
+                cursor: 'pointer'
+              }}
+            >
+              Single
+            </button>
+            <button
+              onClick={() => setPlayMode('range')}
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '4px',
+                fontSize: '11px',
+                backgroundColor: playMode === 'range' ? '#059669' : 'white',
+                color: playMode === 'range' ? 'white' : '#374151',
+                cursor: 'pointer'
+              }}
+            >
+              Range
+            </button>
+            <button
+              onClick={() => setPlayMode('full')}
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '4px',
+                fontSize: '11px',
+                backgroundColor: playMode === 'full' ? '#059669' : 'white',
+                color: playMode === 'full' ? 'white' : '#374151',
+                cursor: 'pointer'
+              }}
+            >
+              Full Surah
+            </button>
+          </div>
+  
+          {/* Play/Stop Button */}
+          <button
+            onClick={() => {
+              if (playbackMode === 'full' || isPlayingContinuous) {
+                stopAudio();
+              } else {
+                playFullSurah();
+              }
+            }}
+            disabled={isLoadingAudio || !currentVerses || currentVerses.length === 0}
+            style={{
+              backgroundColor: (playbackMode === 'full' || isPlayingContinuous) ? '#dc2626' : '#059669',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 'not-allowed' : 'pointer',
+              opacity: (isLoadingAudio || !currentVerses || currentVerses.length === 0) ? 0.6 : 1
+            }}
+          >
+            {playbackMode === 'full' || isPlayingContinuous ? '⏹ Stop Full Surah' : '▶ Play Full Surah'}
+          </button>
+        </div>
+  
+        {quranMessage && (
+          <div style={{
+            padding: '8px',
+            backgroundColor: quranMessage.includes('✅') ? '#f0fdf4' : 
+                            quranMessage.includes('ℹ️') || quranMessage.includes('🔄') || quranMessage.includes('🔊') ? '#fffbeb' : '#fef2f2',
+            color: quranMessage.includes('✅') ? '#059669' : 
+                    quranMessage.includes('ℹ️') || quranMessage.includes('🔄') || quranMessage.includes('🔊') ? '#d97706' : '#dc2626',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: '500'
+          }}>
+            {quranMessage}
+          </div>
+        )}
+      </div>
+  
+      {/* Render based on view mode */}
+      {isLoadingQuran ? (
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '40px', 
+          borderRadius: '8px', 
+          textAlign: 'center',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+        }}>
+          Loading verses...
+        </div>
+      ) : currentVerses.length > 0 ? (
+        quranViewMode === 'single' ? renderSingleVerseView() : renderFullPageView()
+      ) : (
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '40px', 
+          borderRadius: '8px', 
+          textAlign: 'center',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📖</div>
+          <p>Loading surah content...</p>
+        </div>
+      )}
+    </div>
+  ); 
+  // Add this new function to handle surah selection
+  const handleSurahSelection = async (surah) => {
+    setQuranView('reading');
+    setSelectedSurahNumber(surah.number);
+    // Load verses but don't create deck yet
+    await loadSurahVersesWithoutDeck(surah.number);
+  };
+  const loadSurahVersesWithoutDeck = async (surahNumber) => {
+    setIsLoadingQuran(true);
+    setQuranMessage('🔄 Loading verses and translations...');
+    
+    setPlayRange({ start: 1, end: 1 });
+    
+    try {
+      const { data, error } = await fetchSurahVerses(surahNumber, true);
+      
+      if (!error && data && data.length > 0) {
+        setCurrentVerses(data);
+        setPlayRange({ start: 1, end: data.length });
+        
+        const surah = surahs.find(s => s.number === surahNumber);
+        setCurrentSurah(surah);
+        
+        setQuranDeck(null); // Don't create deck yet
+        
+        setQuranMessage(`✅ Loaded ${data.length} verses with translations`);
+        setTimeout(() => setQuranMessage(''), 3000);
+      } else {
+        setQuranMessage(`❌ Failed to load verses: ${error}`);
+        setTimeout(() => setQuranMessage(''), 5000);
+      }
+    } catch (error) {
+      console.error('Error loading verses:', error);
+      setQuranMessage(`❌ Error: ${error.message}`);
+      setTimeout(() => setQuranMessage(''), 5000);
+    } finally {
+      setIsLoadingQuran(false);
+    }
+  };
   // Add this function to your MainApp component (after renderMyCardsTab)
-
   const renderReadTab = () => (
     <div>
-      {/* Header */}
+      {/* Header with dynamic title and back navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0' }}>Read Islamic Books</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Back button - only show when not on main view */}
+          {quranView !== 'main' && (
+            <button
+              onClick={() => {
+                if (quranView === 'reading') {
+                  setQuranView('surah-library');
+                  setCurrentSurah(null);
+                  setCurrentVerses([]);
+                  setQuranDeck(null);
+                } else if (quranView === 'surah-library') {
+                  setQuranView('main');
+                }
+              }}
+              style={{
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              ← Back
+            </button>
+          )}
+          
+          <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0' }}>
+            {quranView === 'main' ? 'Read Islamic Books' :
+             quranView === 'surah-library' ? 'Quran - Select Surah' :
+             'Reading Quran'}
+          </h2>
+        </div>
+        
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {readSubTab === 'quran' && quranDeck && (
+          {quranView === 'reading' && quranDeck && (
             <div style={{ 
               fontSize: '12px', 
               color: '#059669', 
@@ -4132,7 +4378,7 @@ function MainApp({ user }: { user: any }) {
               📚 {quranDeck.name}
             </div>
           )}
-          {readSubTab === 'quran' && currentSurah && (
+          {quranView === 'reading' && currentSurah && (
             <div style={{ 
               fontSize: '12px', 
               color: '#8b5cf6', 
@@ -4146,39 +4392,233 @@ function MainApp({ user }: { user: any }) {
           )}
         </div>
       </div>
-
-      {/* Sub-tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '16px' }}>
-        {[
-          { id: 'quran', label: 'Quran', icon: '📖' },
-          { id: 'hadith', label: 'Hadith', icon: '📜' },
-          { id: 'seerah', label: 'Seerah', icon: '🕌' }
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setReadSubTab(tab.id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '10px 16px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              color: readSubTab === tab.id ? '#8b5cf6' : '#6b7280',
-              fontWeight: readSubTab === tab.id ? '600' : '400',
-              fontSize: '14px',
-              cursor: 'pointer',
-              borderBottom: readSubTab === tab.id ? '2px solid #8b5cf6' : '2px solid transparent'
-            }}
-          >
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+  
+      {/* Render content based on current view */}
+      {quranView === 'main' && renderMainReadMenu()}
+      {quranView === 'surah-library' && renderSurahLibrary()}
+      {quranView === 'reading' && renderQuranReading()}
+    </div>
+  );
+  const renderMainReadMenu = () => (
+    <div style={{ display: 'grid', gap: '16px', maxWidth: '600px', margin: '0 auto' }}>
+      {/* Quran Card */}
+      <div 
+        onClick={() => setQuranView('surah-library')}
+        style={{
+          backgroundColor: 'white',
+          padding: '32px',
+          borderRadius: '16px',
+          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+          border: '2px solid #8b5cf6',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease',
+          textAlign: 'center'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-4px)';
+          e.currentTarget.style.boxShadow = '0 8px 25px rgba(139, 92, 246, 0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+        }}
+      >
+        <div style={{ fontSize: '64px', marginBottom: '16px' }}>📖</div>
+        <h3 style={{ fontSize: '24px', fontWeight: '700', color: '#8b5cf6', marginBottom: '8px' }}>
+          Holy Quran
+        </h3>
+        <p style={{ color: '#6b7280', fontSize: '16px', marginBottom: '16px' }}>
+          Read and study the Quran with interactive Arabic learning
+        </p>
+        <div style={{ 
+          backgroundColor: '#f3f0ff', 
+          color: '#8b5cf6', 
+          padding: '8px 16px', 
+          borderRadius: '20px', 
+          fontSize: '14px', 
+          fontWeight: '600',
+          display: 'inline-block'
+        }}>
+          114 Surahs Available
+        </div>
       </div>
-
-      {/* Sub-tab Content */}
-      {readSubTab === 'quran' ? renderQuranContent() : renderComingSoonContent(readSubTab)}
+  
+      {/* Hadith Card */}
+      <div style={{
+        backgroundColor: 'white',
+        padding: '32px',
+        borderRadius: '16px',
+        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+        border: '2px solid #e5e7eb',
+        textAlign: 'center',
+        opacity: '0.6'
+      }}>
+        <div style={{ fontSize: '64px', marginBottom: '16px' }}>📜</div>
+        <h3 style={{ fontSize: '24px', fontWeight: '700', color: '#374151', marginBottom: '8px' }}>
+          Hadith Collection
+        </h3>
+        <p style={{ color: '#6b7280', fontSize: '16px', marginBottom: '16px' }}>
+          Study authenticated hadith with Arabic vocabulary building
+        </p>
+        <div style={{ 
+          backgroundColor: '#f3f4f6', 
+          color: '#6b7280', 
+          padding: '8px 16px', 
+          borderRadius: '20px', 
+          fontSize: '14px', 
+          fontWeight: '600',
+          display: 'inline-block'
+        }}>
+          Coming Soon
+        </div>
+      </div>
+  
+      {/* Seerah Card */}
+      <div style={{
+        backgroundColor: 'white',
+        padding: '32px',
+        borderRadius: '16px',
+        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+        border: '2px solid #e5e7eb',
+        textAlign: 'center',
+        opacity: '0.6'
+      }}>
+        <div style={{ fontSize: '64px', marginBottom: '16px' }}>🕌</div>
+        <h3 style={{ fontSize: '24px', fontWeight: '700', color: '#374151', marginBottom: '8px' }}>
+          Seerah (Biography)
+        </h3>
+        <p style={{ color: '#6b7280', fontSize: '16px', marginBottom: '16px' }}>
+          Learn from the life of Prophet Muhammad ﷺ
+        </p>
+        <div style={{ 
+          backgroundColor: '#f3f4f6', 
+          color: '#6b7280', 
+          padding: '8px 16px', 
+          borderRadius: '20px', 
+          fontSize: '14px', 
+          fontWeight: '600',
+          display: 'inline-block'
+        }}>
+          Coming Soon
+        </div>
+      </div>
+    </div>
+  );
+  // Surah library - list of all 114 surahs
+  const renderSurahLibrary = () => (
+    <div>
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px',
+          backgroundColor: '#f9fafb',
+          borderBottom: '1px solid #e5e7eb',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 8px 0', color: '#374151' }}>
+            Select a Surah to Read
+          </h3>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: '0' }}>
+            Choose from 114 surahs • Double-click Arabic words to create flashcards
+          </p>
+        </div>
+  
+        {/* Surahs List */}
+        <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+          {surahs.map((surah, index) => (
+            <div 
+              key={surah.number}
+              onClick={() => handleSurahSelection(surah)}
+              style={{
+                padding: '16px 20px',
+                borderBottom: index < surahs.length - 1 ? '1px solid #f3f4f6' : 'none',
+                cursor: 'pointer',
+                transition: 'background-color 0.15s ease',
+                display: 'grid',
+                gridTemplateColumns: '60px 1fr auto auto',
+                gap: '16px',
+                alignItems: 'center'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              {/* Surah Number */}
+              <div style={{
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '14px',
+                fontWeight: '700'
+              }}>
+                {surah.number}
+              </div>
+  
+              {/* Names */}
+              <div>
+                <div style={{
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  color: '#374151',
+                  marginBottom: '4px',
+                  fontFamily: 'Arial, sans-serif',
+                  direction: 'rtl'
+                }}>
+                  {surah.name_arabic}
+                </div>
+                <div style={{
+                  fontSize: '14px',
+                  color: '#8b5cf6',
+                  fontWeight: '600'
+                }}>
+                  {surah.name_english}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#6b7280'
+                }}>
+                  {surah.name_transliterated}
+                </div>
+              </div>
+  
+              {/* Verse Count */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  color: '#059669'
+                }}>
+                  {surah.verses_count}
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  color: '#6b7280',
+                  textTransform: 'uppercase'
+                }}>
+                  Verses
+                </div>
+              </div>
+  
+              {/* Revelation Type */}
+              <div style={{
+                backgroundColor: surah.revelation_place === 'Meccan' ? '#fef3c7' : '#f0fdf4',
+                color: surah.revelation_place === 'Meccan' ? '#92400e' : '#059669',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '10px',
+                fontWeight: '600',
+                textTransform: 'uppercase'
+              }}>
+                {surah.revelation_place}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
