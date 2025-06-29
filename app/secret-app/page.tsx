@@ -41,8 +41,6 @@ import {
   updateVideoBackgroundSetting,
   updateDailyImmersionStats,
   saveImmersionSession,
-  updateDailyImmersionStats,
-  saveImmersionSession,
   loadUserImmersionStats,
 } from '@/lib/database'
 import { 
