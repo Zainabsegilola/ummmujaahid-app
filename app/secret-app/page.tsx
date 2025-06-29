@@ -3022,6 +3022,259 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 3000);
     }
   };
+  // Persistent Watch Tab Content (always mounted when video exists)
+  const renderWatchTabContent = () => (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0' }}>Watch Videos</h2>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {currentDeck && (
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#059669', 
+              fontWeight: '500',
+              backgroundColor: '#f0fdf4',
+              padding: '4px 8px',
+              borderRadius: '6px'
+            }}>
+              📚 {currentDeck.name}
+            </div>
+          )}
+          {currentVideoTitle && (
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#8b5cf6', 
+              fontWeight: '500',
+              backgroundColor: '#f3f0ff',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              maxWidth: '300px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {currentVideoTitle}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="Paste YouTube URL here..."
+            style={{
+              flex: '1',
+              padding: '8px 12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              fontSize: '14px',
+              outline: 'none'
+            }}
+          />
+          <button
+            onClick={loadNewVideo}
+            disabled={isLoadingTranscript}
+            style={{
+              backgroundColor: isLoadingTranscript ? '#9ca3af' : '#8b5cf6',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              fontWeight: '600',
+              cursor: isLoadingTranscript ? 'not-allowed' : 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            {isLoadingTranscript ? 'Loading...' : 'Load'}
+          </button>
+          {currentVideoId && (
+              <button
+                onClick={clearCurrentVideoState}
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                🗑️ Clear
+              </button>
+            )}
+          
+          {transcript.length > 0 && (
+            <button
+              onClick={processHarakatForTranscript}
+              disabled={isProcessingHarakat}
+              style={{
+                backgroundColor: isProcessingHarakat ? '#9ca3af' : '#059669',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                fontWeight: '600',
+                cursor: isProcessingHarakat ? 'not-allowed' : 'pointer',
+                fontSize: '12px',
+                whiteSpace: 'nowrap'
+              }}
+              title="Add harakat (diacritics) to Arabic text"
+            >
+              {isProcessingHarakat ? '⏳' : 'ً◌'} Harakat
+            </button>
+          )}
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '12px',
+            fontWeight: '500',
+            color: '#374151',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={userSettings.video_keep_playing_background}
+              onChange={async (e) => {
+                const newValue = e.target.checked;
+                setUserSettings(prev => ({
+                  ...prev,
+                  video_keep_playing_background: newValue
+                }));
+                await updateVideoBackgroundSetting(user.id, newValue);
+              }}
+              style={{ marginRight: '4px' }}
+            />
+            🎵 Keep playing in background
+          </label>
+        </div>
+        
+        {cardMessage && (
+          <div style={{
+            marginTop: '8px',
+            padding: '8px',
+            backgroundColor: cardMessage.includes('✅') ? '#f0fdf4' : 
+                            cardMessage.includes('⚠️') ? '#fffbeb' : '#fef2f2',
+            color: cardMessage.includes('✅') ? '#059669' : 
+                   cardMessage.includes('⚠️') ? '#d97706' : '#dc2626',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: '500'
+          }}>
+            {cardMessage}
+          </div>
+        )}
+        
+        {transcriptError && (
+          <div style={{
+            marginTop: '8px',
+            padding: '8px',
+            backgroundColor: '#fef2f2',
+            color: '#dc2626',
+            borderRadius: '4px',
+            fontSize: '12px'
+          }}>
+            ⚠️ {transcriptError}
+          </div>
+        )}
+      </div>
+      
+      {currentVideoId && (
+        <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
+          <div style={{ width: '30%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: 'auto' }}>
+              <div style={{ aspectRatio: '16/9', backgroundColor: '#000', borderRadius: '8px', marginBottom: '12px' }}>
+                <div ref={playerRef} style={{ width: '100%', height: '100%', borderRadius: '8px' }}></div>
+              </div>
+  
+              <div style={{ 
+                backgroundColor: '#f9fafb', 
+                borderRadius: '6px', 
+                padding: '12px',
+                marginBottom: '12px'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                  📚 Current Deck
+                </h4>
+                {currentDeck ? (
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: '500', marginBottom: '6px' }}>
+                      {currentDeck.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                      Total cards: {currentDeck.totalCards || 0}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                    Load a video to create a deck
+                  </div>
+                )}
+              </div>
+  
+              <div style={{ 
+                backgroundColor: '#f0fdf4', 
+                borderRadius: '6px', 
+                padding: '12px',
+                border: '1px solid #d1fae5'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#059669' }}>
+                  💡 How to Use
+                </h4>
+                <ul style={{ margin: '0', paddingLeft: '16px', fontSize: '11px', color: '#065f46', lineHeight: '1.4' }}>
+                  <li>Click words to jump to that time</li>
+                  <li><strong>Double-click Arabic words</strong> to add to flashcards</li>
+                  <li>Next segment (coming up) is highlighted in purple</li>
+                  <li>Past and current segments are grayed out</li>
+                  <li>Future segments are black</li>
+                  <li>Transcript auto-scrolls with playback</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+  
+          <div style={{ width: '70%' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div 
+                ref={transcriptRef}
+                style={{ 
+                  flex: '1', 
+                  overflowY: 'auto', 
+                  maxHeight: 'calc(100vh - 220px)',
+                  scrollPaddingBottom: '100px'
+                }}
+              >
+                {transcript.length > 0 ? (
+                  renderWordByWordTranscript()
+                ) : (
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    height: '100%', 
+                    color: '#6b7280',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📺</div>
+                    <p>Load a video to see the interactive transcript</p>
+                    <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', marginTop: '8px' }}>
+                      Double-click Arabic words to add them to your flashcard deck
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
   // Background Video Controls Component
   const renderBackgroundVideoControls = () => {
     if (!showBackgroundControls || !backgroundVideoInfo) return null;
@@ -4310,274 +4563,6 @@ function MainApp({ user }: { user: any }) {
         </div>
     </div>
     );
-
-  const renderWatchTab = () => (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0' }}>Watch Videos</h2>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {currentDeck && (
-            <div style={{ 
-              fontSize: '12px', 
-              color: '#059669', 
-              fontWeight: '500',
-              backgroundColor: '#f0fdf4',
-              padding: '4px 8px',
-              borderRadius: '6px'
-            }}>
-              📚 {currentDeck.name}
-            </div>
-          )}
-          {currentVideoTitle && (
-            <div style={{ 
-              fontSize: '12px', 
-              color: '#8b5cf6', 
-              fontWeight: '500',
-              backgroundColor: '#f3f0ff',
-              padding: '4px 8px',
-              borderRadius: '6px',
-              maxWidth: '300px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
-            }}>
-              {currentVideoTitle}
-            </div>
-          )}
-        </div>
-      </div>
-      
-      <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <input
-            type="text"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="Paste YouTube URL here..."
-            style={{
-              flex: '1',
-              padding: '8px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              fontSize: '14px',
-              outline: 'none'
-            }}
-          />
-          <button
-            onClick={loadNewVideo}
-            disabled={isLoadingTranscript}
-            style={{
-              backgroundColor: isLoadingTranscript ? '#9ca3af' : '#8b5cf6',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              border: 'none',
-              fontWeight: '600',
-              cursor: isLoadingTranscript ? 'not-allowed' : 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            {isLoadingTranscript ? 'Loading...' : 'Load'}
-          </button>
-          {currentVideoId && (
-              <button
-                onClick={clearCurrentVideoState}
-                style={{
-                  backgroundColor: '#dc2626',
-                  color: 'white',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  fontSize: '12px'
-                }}
-              >
-                🗑️ Clear
-              </button>
-            )}
-          
-          {transcript.length > 0 && (
-            <button
-              onClick={processHarakatForTranscript}
-              disabled={isProcessingHarakat}
-              style={{
-                backgroundColor: isProcessingHarakat ? '#9ca3af' : '#059669',
-                color: 'white',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                fontWeight: '600',
-                cursor: isProcessingHarakat ? 'not-allowed' : 'pointer',
-                fontSize: '12px',
-                whiteSpace: 'nowrap'
-              }}
-              title="Add harakat (diacritics) to Arabic text"
-            >
-              {isProcessingHarakat ? '⏳' : 'ً◌'} Harakat
-            </button>
-          )}
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '12px',
-            fontWeight: '500',
-            color: '#374151',
-            cursor: 'pointer'
-          }}>
-            <input
-              type="checkbox"
-              checked={userSettings.video_keep_playing_background}
-              onChange={async (e) => {
-                const newValue = e.target.checked;
-                setUserSettings(prev => ({
-                  ...prev,
-                  video_keep_playing_background: newValue
-                }));
-                await updateVideoBackgroundSetting(user.id, newValue);
-              }}
-              style={{ marginRight: '4px' }}
-            />
-            🎵 Keep playing in background
-          </label>
-        </div>
-        
-        {cardMessage && (
-          <div style={{
-            marginTop: '8px',
-            padding: '8px',
-            backgroundColor: cardMessage.includes('✅') ? '#f0fdf4' : 
-                            cardMessage.includes('⚠️') ? '#fffbeb' : '#fef2f2',
-            color: cardMessage.includes('✅') ? '#059669' : 
-                   cardMessage.includes('⚠️') ? '#d97706' : '#dc2626',
-            borderRadius: '4px',
-            fontSize: '12px',
-            fontWeight: '500'
-          }}>
-            {cardMessage}
-          </div>
-        )}
-        
-        {transcriptError && (
-          <div style={{
-            marginTop: '8px',
-            padding: '8px',
-            backgroundColor: '#fef2f2',
-            color: '#dc2626',
-            borderRadius: '4px',
-            fontSize: '12px'
-          }}>
-            ⚠️ {transcriptError}
-          </div>
-        )}
-      </div>
-      
-      {currentVideoId && (
-       <div style={{ 
-            display: 'flex', 
-            gap: '16px', 
-            height: 'calc(100vh - 200px)',
-            visibility: activeTab === 'watch' ? 'visible' : 'hidden',
-            position: activeTab === 'watch' ? 'relative' : 'fixed',
-            top: activeTab === 'watch' ? 'auto' : '0',
-            left: activeTab === 'watch' ? 'auto' : '0',
-            width: activeTab === 'watch' ? 'auto' : '1px',
-            height: activeTab === 'watch' ? 'calc(100vh - 200px)' : '1px',
-            overflow: 'hidden',
-            pointerEvents: activeTab === 'watch' ? 'auto' : 'none',
-            zIndex: activeTab === 'watch' ? 'auto' : '-1'
-          }}>
-          <div style={{ width: '30%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: 'auto' }}>
-              <div style={{ aspectRatio: '16/9', backgroundColor: '#000', borderRadius: '8px', marginBottom: '12px' }}>
-                <div ref={playerRef} style={{ width: '100%', height: '100%', borderRadius: '8px' }}></div>
-              </div>
-
-              {/* REMOVED PLAY/PAUSE BUTTON AND TIME DISPLAY */}
-              
-              <div style={{ 
-                backgroundColor: '#f9fafb', 
-                borderRadius: '6px', 
-                padding: '12px',
-                marginBottom: '12px'
-              }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-                  📚 Current Deck
-                </h4>
-                {currentDeck ? (
-                  <div>
-                    <div style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: '500', marginBottom: '6px' }}>
-                      {currentDeck.name}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>
-                      Total cards: {currentDeck.totalCards || 0}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                    Load a video to create a deck
-                  </div>
-                )}
-              </div>
-
-              <div style={{ 
-                backgroundColor: '#f0fdf4', 
-                borderRadius: '6px', 
-                padding: '12px',
-                border: '1px solid #d1fae5'
-              }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#059669' }}>
-                  💡 How to Use
-                </h4>
-                <ul style={{ margin: '0', paddingLeft: '16px', fontSize: '11px', color: '#065f46', lineHeight: '1.4' }}>
-                  <li>Click words to jump to that time</li>
-                  <li><strong>Double-click Arabic words</strong> to add to flashcards</li>
-                  <li>Next segment (coming up) is highlighted in purple</li>
-                  <li>Past and current segments are grayed out</li>
-                  <li>Future segments are black</li>
-                  <li>Transcript auto-scrolls with playback</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ width: '70%' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div 
-                ref={transcriptRef}
-                style={{ 
-                  flex: '1', 
-                  overflowY: 'auto', 
-                  maxHeight: 'calc(100vh - 220px)',
-                  scrollPaddingBottom: '100px'
-                }}
-              >
-                {transcript.length > 0 ? (
-                  renderWordByWordTranscript()
-                ) : (
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
-                    height: '100%', 
-                    color: '#6b7280',
-                    flexDirection: 'column'
-                  }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📺</div>
-                    <p>Load a video to see the interactive transcript</p>
-                    <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', marginTop: '8px' }}>
-                      Double-click Arabic words to add them to your flashcard deck
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
   // STEP 4: Replace your entire renderMyCardsTab() function with this:
   const renderMyCardsTab = () => {
       // If we're in card management view, show the card browser
@@ -5835,7 +5820,25 @@ function MainApp({ user }: { user: any }) {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'watch':
-        return renderWatchTab();
+        // Watch tab content is now handled by persistent container
+        return (
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '60px', 
+            borderRadius: '12px', 
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+            textAlign: 'center',
+            border: '1px solid #f3f4f6'
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '16px', opacity: '0.5' }}>📺</div>
+            <h3 style={{ color: '#6b7280', marginBottom: '8px', fontSize: '18px' }}>
+              Load a video to start watching
+            </h3>
+            <p style={{ color: '#9ca3af', fontSize: '14px' }}>
+              Paste a YouTube URL above to begin learning Arabic
+            </p>
+          </div>
+        );
       case 'settings':
         return renderSettingsPage();
       case 'my-cards':
@@ -6600,7 +6603,29 @@ function MainApp({ user }: { user: any }) {
       </div>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px' }}>
-        {renderTabContent()}
+        {/* Persistent YouTube Player Container */}
+        {currentVideoId && (
+          <div style={{
+            position: activeTab === 'watch' ? 'relative' : 'fixed',
+            top: activeTab === 'watch' ? '0' : '-9999px',
+            left: activeTab === 'watch' ? '0' : '-9999px',
+            width: activeTab === 'watch' ? '100%' : '1px',
+            height: activeTab === 'watch' ? 'auto' : '1px',
+            zIndex: activeTab === 'watch' ? 1 : -1,
+            overflow: 'hidden'
+          }}>
+            {renderWatchTabContent()}
+          </div>
+        )}
+        
+        {/* Regular Tab Content */}
+        <div style={{ display: activeTab === 'watch' ? 'none' : 'block' }}>
+          {renderTabContent()}
+        </div>
+        
+        {/* Show watch tab content when active */}
+        {activeTab === 'watch' && !currentVideoId && renderWatchTabContent()}
+        
         {renderCardModal()}
         {renderBackgroundVideoControls()}
         {renderBackgroundStatusIndicator()}
