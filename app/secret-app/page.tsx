@@ -1089,6 +1089,78 @@ function MainApp({ user }: { user: any }) {
               </div>
             </label>
           </div>
+          {/* Video Background Play Setting */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '16px',
+            backgroundColor: '#f9fafb',
+            borderRadius: '8px',
+            border: '1px solid #f3f4f6',
+            marginTop: '16px'
+          }}>
+            <div>
+              <div style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '4px'
+              }}>
+                🎵 Keep Videos Playing in Background
+              </div>
+              <div style={{
+                fontSize: '14px',
+                color: '#6b7280'
+              }}>
+                Videos continue playing when you switch to other tabs
+              </div>
+            </div>
+            
+            <label style={{
+              position: 'relative',
+              display: 'inline-block',
+              width: '50px',
+              height: '24px',
+              cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={userSettings.video_keep_playing_background}
+                onChange={(e) => {
+                  const newSettings = {
+                    ...userSettings,
+                    video_keep_playing_background: e.target.checked
+                  };
+                  setUserSettings(newSettings);
+                  saveUserSettings(newSettings);
+                }}
+                style={{ display: 'none' }}
+              />
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: userSettings.video_keep_playing_background ? '#8b5cf6' : '#d1d5db',
+                borderRadius: '24px',
+                transition: 'background-color 0.2s ease'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '2px',
+                  left: userSettings.video_keep_playing_background ? '28px' : '2px',
+                  width: '20px',
+                  height: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  transition: 'left 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                }} />
+              </div>
+            </label>
+          </div>
   
           {/* Future settings placeholders */}
           <div style={{
@@ -6273,7 +6345,13 @@ function MainApp({ user }: { user: any }) {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  // Save video state before switching tabs
+                  if (activeTab === 'watch') {
+                    saveCurrentVideoState();
+                  }
+                  setActiveTab(tab.id);
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
