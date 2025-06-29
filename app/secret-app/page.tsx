@@ -2285,6 +2285,13 @@ function MainApp({ user }: { user: any }) {
       }
     } else {
       // User switched away from watch tab
+      console.log('🐛 DEBUG: Tab switched away from watch');
+      console.log('🐛 player exists:', !!player);
+      console.log('🐛 isPlaying:', isPlaying);
+      console.log('🐛 background setting:', userSettings.video_keep_playing_background);
+      console.log('🐛 currentVideoId:', currentVideoId);
+  
+  if (player && isPlaying && userSettings.video_keep_playing_background && currentVideoId) {
       if (player && isPlaying && userSettings.video_keep_playing_background && currentVideoId) {
         // Enable background mode
         setIsVideoPlayingBackground(true);
