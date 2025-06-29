@@ -244,7 +244,7 @@ function AuthForm() {
     </div>
   )
 }
-function ProfileDropdown({ user, onLogout, onGoToSettings }) {
+function ProfileDropdown({ user, onLogout, onGoToSettings, onOpenProfile }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -308,7 +308,7 @@ function ProfileDropdown({ user, onLogout, onGoToSettings }) {
           <button
             onClick={() => {
               setIsOpen(false);
-              setShowProfileModal(true); // Open profile modal
+              onOpenProfile(); // Open profile modal
             }}
             style={{
               width: '100%',
@@ -7506,7 +7506,12 @@ function MainApp({ user }: { user: any }) {
                     عَرَبِيًّا
                 </div>
             </div>
-            <ProfileDropdown user={user} onLogout={handleLogout} onGoToSettings={goToSettings} />
+            <ProfileDropdown 
+                user={user} 
+                onLogout={handleLogout} 
+                onGoToSettings={goToSettings}
+                onOpenProfile={() => setShowProfileModal(true)}
+              />
           </div>
 
           <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginTop: '16px' }}>
