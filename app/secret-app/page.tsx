@@ -1129,7 +1129,6 @@ function MainApp({ user }: { user: any }) {
             </button>
           </div>
         </div>
-       {renderStillWatchingPrompt()}
       </div>
     );
   };
