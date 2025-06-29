@@ -2503,6 +2503,17 @@ function MainApp({ user }: { user: any }) {
         loadCommunityPosts();
     }
   }, [activeTab, user]);
+  useEffect(() => {
+    console.log('🔍 Checking initialization conditions:', {
+      currentVideoId: currentVideoId,
+      windowYT: !!window.YT
+    });
+    
+    if (currentVideoId && window.YT) {
+      console.log('🎯 Both conditions met, calling initializePlayer');
+      setTimeout(() => initializePlayer(), 500);
+    }
+  }, [currentVideoId]);
   
   useEffect(() => {
     if (user?.id) {
@@ -2696,15 +2707,19 @@ function MainApp({ user }: { user: any }) {
 
   // YouTube functions
   const loadYouTubeAPI = () => {
+    console.log('🔄 Loading YouTube API...');
     if (!window.YT) {
       const script = document.createElement('script');
       script.src = 'https://www.youtube.com/iframe_api';
       script.async = true;
       document.body.appendChild(script);
-      window.onYouTubeIframeAPIReady = () => console.log('YouTube API ready');
+      window.onYouTubeIframeAPIReady = () => {
+        console.log('✅ YouTube API loaded and ready!');
+      };
+    } else {
+      console.log('✅ YouTube API already loaded');
     }
   };
-
   const initializePlayer = () => {
     console.log('🎯 initializePlayer called');
     console.log('YouTube API ready:', !!window.YT);
@@ -2992,6 +3007,9 @@ function MainApp({ user }: { user: any }) {
     console.log('🔄 Fetching transcript...');
     await fetchTranscript(videoId);
     
+    console.log('✅ Video loading complete');
+    console.log('🔄 Setting video ID:', videoId);
+    setCurrentVideoId(videoId);
     console.log('✅ Video loading complete');
   };
 
