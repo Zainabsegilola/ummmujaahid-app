@@ -34,7 +34,11 @@ import {
   saveQuranAudioCache,
   fetchStudyCardAudio,
   getUserSettings,
-  updateUserSettings
+  updateUserSettings,
+  saveVideoState,
+  getVideoState,
+  clearVideoState,
+  updateVideoBackgroundSetting
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
@@ -474,8 +478,13 @@ function MainApp({ user }: { user: any }) {
   });
   //user setting states
   const [userSettings, setUserSettings] = useState({
-    card_autoplay_audio: true
+    card_autoplay_audio: true,
+    current_video_url: null,
+    current_video_timestamp: 0,
+    video_keep_playing_background: true
   });
+  const [savedVideoState, setSavedVideoState] = useState(null);
+  const [videoTimestampInterval, setVideoTimestampInterval] = useState(null);
   const [previousTab, setPreviousTab] = useState('my-cards'); // Track which tab to return to
 
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
