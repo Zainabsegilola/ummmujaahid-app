@@ -574,6 +574,9 @@ function MainApp({ user }: { user: any }) {
     if (!user?.id) return;
     
     try {
+      // Stop immersion session before clearing video
+      await stopImmersionSession();
+      
       await clearVideoState(user.id);
       setSavedVideoState(null);
       setVideoUrl('');
@@ -593,6 +596,7 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 3000);
     }
   };
+
   const saveUserSettings = async (newSettings) => {
     if (!user?.id) return;
     try {
@@ -1122,10 +1126,37 @@ function MainApp({ user }: { user: any }) {
             </button>
           </div>
         </div>
+       {renderStillWatchingPrompt()}
       </div>
     );
   };
-
+  const renderImmersionStats = () => {
+    if (!sessionStartTime || immersionTimer === 0) return null;
+    
+    const minutes = Math.floor(immersionTimer / 60);
+    const seconds = immersionTimer % 60;
+    
+    return (
+      <div style={{
+        backgroundColor: '#f0fdf4',
+        border: '1px solid #d1fae5',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        margin: '8px 0',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <span style={{ fontSize: '16px' }}>🎯</span>
+        <div style={{ fontSize: '12px', color: '#059669' }}>
+          <strong>Immersion:</strong> {minutes}:{seconds.toString().padStart(2, '0')} 
+          <span style={{ marginLeft: '8px', opacity: '0.8' }}>
+            ({currentSessionType})
+          </span>
+        </div>
+      </div>
+    );
+  };
   const renderSettingsPage = () => (
     <div>
       {/* Header with back button */}
@@ -2476,6 +2507,14 @@ function MainApp({ user }: { user: any }) {
       loadUserSettings();
     }
   }, [user]);
+  useEffect(() => {
+    // Cleanup immersion session on component unmount or user logout
+    return () => {
+      if (sessionStartTime) {
+        stopImmersionSession();
+      }
+    };
+  }, []);
   useEffect(() => {
     if (isTabFocused && activeTab === 'watch') {
       setCurrentSessionType('focused');
