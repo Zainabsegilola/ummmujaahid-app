@@ -1160,6 +1160,76 @@ function MainApp({ user }: { user: any }) {
       </div>
     );
   };
+  const renderImmersionTimerWidget = () => {
+    // Only show on watch tab and when session is active
+    if (activeTab !== 'watch' || !sessionStartTime || immersionTimer === 0) return null;
+    
+    const minutes = Math.floor(immersionTimer / 60);
+    const seconds = immersionTimer % 60;
+    const hours = Math.floor(minutes / 60);
+    const displayMinutes = minutes % 60;
+    
+    // Format time display
+    const timeDisplay = hours > 0 
+      ? `${hours}:${displayMinutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+      : `${displayMinutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    return (
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        left: '20px',
+        backgroundColor: 'rgba(139, 92, 246, 0.95)',
+        color: 'white',
+        padding: '12px 16px',
+        borderRadius: '12px',
+        boxShadow: '0 8px 25px rgba(139, 92, 246, 0.3)',
+        zIndex: 999,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        minWidth: '180px',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.2)'
+      }}>
+        
+        {/* Session Type Icon */}
+        <div style={{ fontSize: '18px' }}>
+          {currentSessionType === 'focused' ? '🎯' : '🌊'}
+        </div>
+        
+        {/* Time Display */}
+        <div style={{ flex: 1 }}>
+          <div style={{ 
+            fontSize: '18px', 
+            fontWeight: '700',
+            fontFamily: 'monospace',
+            letterSpacing: '0.5px'
+          }}>
+            {timeDisplay}
+          </div>
+          <div style={{ 
+            fontSize: '10px', 
+            opacity: '0.8',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            fontWeight: '500'
+          }}>
+            {currentSessionType === 'focused' ? 'Focused' : 'Freeflow'}
+          </div>
+        </div>
+        
+        {/* Pulse Indicator */}
+        <div style={{
+          width: '8px',
+          height: '8px',
+          backgroundColor: currentSessionType === 'focused' ? '#10b981' : '#f59e0b',
+          borderRadius: '50%',
+          animation: 'pulse 2s infinite'
+        }} />
+      </div>
+    );
+  };
   const renderSettingsPage = () => (
     <div>
       {/* Header with back button */}
@@ -4873,6 +4943,279 @@ function MainApp({ user }: { user: any }) {
         </div>
     </div>
     );
+    const renderProfileTab = () => {
+      const [userStats, setUserStats] = useState({
+        today: { focused_seconds: 0, freeflow_seconds: 0, total_seconds: 0 },
+        week: { total_seconds: 0, days_active: 0 },
+        allTime: { total_seconds: 0, longest_session: 0 }
+      });
+    
+      // Load user stats when tab opens
+      useEffect(() => {
+        if (activeTab === 'profile' && user?.id) {
+          loadUserImmersionStats();
+        }
+      }, [activeTab, user]);
+    
+      const loadUserImmersionStats = async () => {
+        // TODO: You'll implement these database queries later
+        console.log('Loading user immersion stats...');
+      };
+    
+      // Helper function to format seconds into readable time
+      const formatTime = (seconds) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        
+        if (hours > 0) {
+          return `${hours}h ${minutes}m`;
+        } else if (minutes > 0) {
+          return `${minutes}m`;
+        } else {
+          return `${seconds}s`;
+        }
+      };
+    
+      return (
+        <div>
+          {/* Profile Header */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginBottom: '24px' 
+          }}>
+            <h2 style={{ fontSize: '28px', fontWeight: '700', margin: '0', color: '#111827' }}>
+              Profile
+            </h2>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#8b5cf6', 
+                fontWeight: '500',
+                backgroundColor: '#f3f0ff',
+                padding: '4px 8px',
+                borderRadius: '6px'
+              }}>
+                {user?.email}
+              </div>
+            </div>
+          </div>
+    
+          {/* Immersion Stats Card */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+            border: '2px solid #8b5cf6',
+            marginBottom: '24px'
+          }}>
+            
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '20px'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#8b5cf6',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px'
+              }}>
+                ⏱️
+              </div>
+              <div>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  margin: '0',
+                  color: '#111827'
+                }}>
+                  Immersion Stats
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  margin: '4px 0 0 0'
+                }}>
+                  Your Arabic learning journey
+                </p>
+              </div>
+            </div>
+            
+            {/* Stats Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+              gap: '16px'
+            }}>
+              
+              {/* Today */}
+              <div style={{
+                backgroundColor: '#f0fdf4',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid #d1fae5',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: '#059669',
+                  marginBottom: '4px'
+                }}>
+                  {formatTime(userStats.today.total_seconds)}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#065f46',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Today
+                </div>
+                <div style={{
+                  fontSize: '10px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  🎯 {formatTime(userStats.today.focused_seconds)} • 🌊 {formatTime(userStats.today.freeflow_seconds)}
+                </div>
+              </div>
+              
+              {/* This Week */}
+              <div style={{
+                backgroundColor: '#fef3c7',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid #fde68a',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: '#d97706',
+                  marginBottom: '4px'
+                }}>
+                  {formatTime(userStats.week.total_seconds)}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#92400e',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  This Week
+                </div>
+                <div style={{
+                  fontSize: '10px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  {userStats.week.days_active} days active
+                </div>
+              </div>
+              
+              {/* All Time */}
+              <div style={{
+                backgroundColor: '#f3f0ff',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid #e9d5ff',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: '#8b5cf6',
+                  marginBottom: '4px'
+                }}>
+                  {formatTime(userStats.allTime.total_seconds)}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#7c3aed',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  All Time
+                </div>
+                <div style={{
+                  fontSize: '10px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  Best: {formatTime(userStats.allTime.longest_session)}
+                </div>
+              </div>
+            </div>
+            
+            {/* Progress Indicator */}
+            <div style={{ marginTop: '20px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px'
+              }}>
+                <span style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                  Today's Goal Progress
+                </span>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {Math.min(100, Math.round((userStats.today.total_seconds / (30 * 60)) * 100))}%
+                </span>
+              </div>
+              
+              <div style={{
+                width: '100%',
+                height: '8px',
+                backgroundColor: '#f3f4f6',
+                borderRadius: '4px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${Math.min(100, (userStats.today.total_seconds / (30 * 60)) * 100)}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #8b5cf6 0%, #a855f7 100%)',
+                  transition: 'width 0.3s ease'
+                }} />
+              </div>
+              
+              <div style={{
+                fontSize: '11px',
+                color: '#6b7280',
+                marginTop: '4px',
+                textAlign: 'center'
+              }}>
+                Goal: 30 minutes daily • {Math.max(0, Math.round(((30 * 60) - userStats.today.total_seconds) / 60))} minutes remaining
+              </div>
+            </div>
+          </div>
+    
+          {/* Additional Profile Content */}
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>
+              Learning Achievements
+            </h3>
+            <p style={{ color: '#6b7280', fontSize: '14px' }}>
+              Achievement system coming soon...
+            </p>
+          </div>
+        </div>
+      );
+    };
   // STEP 4: Replace your entire renderMyCardsTab() function with this:
   const renderMyCardsTab = () => {
       // If we're in card management view, show the card browser
@@ -6159,6 +6502,9 @@ function MainApp({ user }: { user: any }) {
         return renderCommunityTab();
       case 'leaderboard':
         return renderLeaderboardTab();
+      case 'profile':
+        return renderProfileTab();
+
       default:
         return (
           <div style={{ padding: '24px', textAlign: 'center' }}>
@@ -6880,6 +7226,7 @@ function MainApp({ user }: { user: any }) {
               { id: 'read', label: 'Read Books' },
               { id: 'community', label: 'Community' },
               { id: 'leaderboard', label: 'Leaderboard' }
+              { id: 'profile', label: 'Profile' } 
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -6939,6 +7286,7 @@ function MainApp({ user }: { user: any }) {
         {renderCardModal()}
         {renderBackgroundVideoControls()}
         {renderBackgroundStatusIndicator()}
+        {renderImmersionTimerWidget()}
         {/* Delete Deck Confirmation Modal */}
       {showDeleteModal && deckToDelete && (
         <div style={{
