@@ -2290,8 +2290,6 @@ function MainApp({ user }: { user: any }) {
       console.log('🐛 isPlaying:', isPlaying);
       console.log('🐛 background setting:', userSettings.video_keep_playing_background);
       console.log('🐛 currentVideoId:', currentVideoId);
-  
-  if (player && isPlaying && userSettings.video_keep_playing_background && currentVideoId) {
       if (player && isPlaying && userSettings.video_keep_playing_background && currentVideoId) {
         // Enable background mode
         setIsVideoPlayingBackground(true);
