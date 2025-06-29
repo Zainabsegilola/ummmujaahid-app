@@ -41,6 +41,9 @@ import {
   updateVideoBackgroundSetting,
   updateDailyImmersionStats,
   saveImmersionSession,
+  updateDailyImmersionStats,
+  saveImmersionSession,
+  loadUserImmersionStats,
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
@@ -501,6 +504,11 @@ function MainApp({ user }: { user: any }) {
   const [showStillWatchingPrompt, setShowStillWatchingPrompt] = useState(false);
   //profile states
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [userStats, setUserStats] = useState({
+    today: { focused_seconds: 0, freeflow_seconds: 0, total_seconds: 0 },
+    week: { total_seconds: 0, days_active: 0 },
+    allTime: { total_seconds: 0, longest_session: 0 }
+  });
 
   
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
@@ -574,11 +582,16 @@ function MainApp({ user }: { user: any }) {
   const renderProfileModal = () => {
     if (!showProfileModal) return null;
   
-    const [userStats, setUserStats] = useState({
-      today: { focused_seconds: 0, freeflow_seconds: 0, total_seconds: 0 },
-      week: { total_seconds: 0, days_active: 0 },
-      allTime: { total_seconds: 0, longest_session: 0 }
-    });
+    // Load stats when modal opens
+    useEffect(() => {
+      if (showProfileModal && user?.id) {
+        loadUserImmersionStats(user.id).then(({ data, error }) => {
+          if (!error && data) {
+            setUserStats(data);
+          }
+        });
+      }
+    }, [showProfileModal, user?.id]);
   
     // Helper function to format seconds into readable time
     const formatTime = (seconds) => {
