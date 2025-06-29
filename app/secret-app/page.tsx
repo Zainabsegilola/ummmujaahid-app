@@ -3373,7 +3373,7 @@ function MainApp({ user }: { user: any }) {
                 display: 'inline',
                 cursor: 'pointer'
               }}
-              onClick={() => handleSegmentClick(segment.start)}
+              onClick={() => seekTo(segment.start)}
             >
               {words.map((word, wordIndex) => (
                 <span
