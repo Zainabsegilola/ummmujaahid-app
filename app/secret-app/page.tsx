@@ -565,40 +565,11 @@ function MainApp({ user }: { user: any }) {
       console.error('❌ Failed to save video state:', error);
     }
   };
-  const renderImmersionStats = () => {
-    if (!sessionStartTime || immersionTimer === 0) return null;
-    
-    const minutes = Math.floor(immersionTimer / 60);
-    const seconds = immersionTimer % 60;
-    
-    return (
-      <div style={{
-        backgroundColor: '#f0fdf4',
-        border: '1px solid #d1fae5',
-        borderRadius: '6px',
-        padding: '8px 12px',
-        margin: '8px 0',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}>
-        <span style={{ fontSize: '16px' }}>🎯</span>
-        <div style={{ fontSize: '12px', color: '#059669' }}>
-          <strong>Immersion:</strong> {minutes}:{seconds.toString().padStart(2, '0')} 
-          <span style={{ marginLeft: '8px', opacity: '0.8' }}>
-            ({currentSessionType})
-          </span>
-        </div>
-      </div>
-    );
-  };
+
   const clearCurrentVideoState = async () => {
     if (!user?.id) return;
     
     try {
-      // Stop immersion session before clearing video
-      await stopImmersionSession();
-      
       await clearVideoState(user.id);
       setSavedVideoState(null);
       setVideoUrl('');
@@ -618,7 +589,6 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 3000);
     }
   };
-
   const saveUserSettings = async (newSettings) => {
     if (!user?.id) return;
     try {
@@ -1104,7 +1074,6 @@ function MainApp({ user }: { user: any }) {
           {cardMessage}
         </div>
       )}
-      {renderImmersionStats()}
   
       {/* Settings Content */}
       <div style={{
@@ -2395,15 +2364,6 @@ function MainApp({ user }: { user: any }) {
         loadCommunityPosts();
     }
   }, [activeTab, user]);
-  useEffect(() => {
-    // Cleanup immersion session on component unmount or user logout
-    return () => {
-      if (sessionStartTime) {
-        stopImmersionSession();
-      }
-    };
-  }, []);
-
   
   useEffect(() => {
     if (user?.id) {
@@ -2453,33 +2413,7 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => initializePlayer(), 500);
     }
   }, [currentVideoId]);
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const isVisible = !document.hidden;
-      setIsTabFocused(isVisible);
-      
-      // Update session type based on tab focus and current tab
-      if (isVisible && activeTab === 'watch') {
-        setCurrentSessionType('focused');
-      } else {
-        setCurrentSessionType('freeflow');
-      }
-    };
-    // Update session type when switching tabs
-  useEffect(() => {
-    if (isTabFocused && activeTab === 'watch') {
-      setCurrentSessionType('focused');
-    } else {
-      setCurrentSessionType('freeflow');
-    }
-  }, [activeTab, isTabFocused]);
 
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  
-  return () => {
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-  };
-}, [activeTab]);
   useEffect(() => {
     if (autoScrollEnabled && !autoScrollPaused && currentPlayingVerse && playbackMode === 'full') {
       const scrollToCurrentVerse = () => {
@@ -2730,33 +2664,55 @@ function MainApp({ user }: { user: any }) {
 
   // Deck functions
   const handleCreateOrGetDeck = async (videoTitle: string, videoId: string) => {
+    if (!user?.id) return;
+    
     try {
-      const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
-      setIsPlaying(isNowPlaying);
+      console.log('🔄 Creating/getting deck for:', { videoTitle, videoId, userId: user.id });
       
-      // Immersion tracking
-      if (isNowPlaying) {
-        // Start immersion session when video starts playing
-        if (!sessionStartTime) {
-          startImmersionSession();
-        }
-      } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
-        // Don't stop session on pause, just pause the timer
-        if (immersionInterval) {
-          clearInterval(immersionInterval);
-          setImmersionInterval(null);
-        }
-        
-        // If video ended, stop the session
-        if (event.data === window.YT.PlayerState.ENDED) {
-          stopImmersionSession();
-        }
+      // Step 1: Try to find existing deck
+      const { data: existingDeck, error: fetchError } = await supabase
+        .from('decks')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('video_id', videoId)
+        .single();
+
+      if (existingDeck && !fetchError) {
+        console.log('✅ Found existing deck:', existingDeck);
+        setCurrentDeck(existingDeck);
+        loadUserDecks();
+        return;
       }
+
+      console.log('🔄 Creating new deck...');
+      
+      // Step 2: Create new deck
+      const { data: newDeck, error: createError } = await supabase
+        .from('decks')
+        .insert({
+          user_id: user.id,
+          name: videoTitle || `Video ${videoId}`,
+          video_id: videoId,
+          video_title: videoTitle,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('❌ Error creating deck:', createError);
+        return;
+      }
+
+      console.log('✅ Created new deck:', newDeck);
+      setCurrentDeck(newDeck);
+      loadUserDecks();
+      
     } catch (error) {
-      console.error('Error in onPlayerStateChange:', error);
+      console.error('❌ Error in handleCreateOrGetDeck:', error);
     }
   };
-
 
   // Video functions
   const extractVideoId = (url: string) => {
@@ -3166,109 +3122,6 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 3000);
     }
   };
-  const renderStillWatchingPrompt = () => {
-    if (!showStillWatchingPrompt) return null;
-  
-    const handleStillWatching = () => {
-      setShowStillWatchingPrompt(false);
-      // Continue the session - timer keeps running
-      console.log('✅ User confirmed still watching');
-    };
-  
-    const handleNotWatching = () => {
-      setShowStillWatchingPrompt(false);
-      // Pause the video and stop session
-      if (player && player.pauseVideo) {
-        player.pauseVideo();
-      }
-      stopImmersionSession();
-    };
-  
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          padding: '40px',
-          borderRadius: '16px',
-          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
-          textAlign: 'center',
-          maxWidth: '400px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>👀</div>
-          <h3 style={{ 
-            fontSize: '24px', 
-            fontWeight: '700', 
-            marginBottom: '12px',
-            color: '#374151'
-          }}>
-            Still watching?
-          </h3>
-          <p style={{ 
-            color: '#6b7280', 
-            marginBottom: '24px',
-            fontSize: '16px'
-          }}>
-            You've been listening for over 90 minutes. Keep going?
-          </p>
-          <div style={{
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #d1fae5',
-            borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '24px'
-          }}>
-            <div style={{ fontSize: '14px', color: '#059669', fontWeight: '600' }}>
-              🎯 Immersion Time: {Math.floor(immersionTimer / 60)} minutes
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <button
-              onClick={handleNotWatching}
-              style={{
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Stop Watching
-            </button>
-            <button
-              onClick={handleStillWatching}
-              style={{
-                backgroundColor: '#8b5cf6',
-                color: 'white',
-                padding: '12px 24px',
-                borderRadius: '8px',
-                border: 'none',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer'
-              }}
-            >
-              Keep Watching
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Persistent Watch Tab Content (always mounted when video exists)
   const renderWatchTabContent = () => (
     <div>
@@ -6999,7 +6852,6 @@ function MainApp({ user }: { user: any }) {
         </div>
       )}
       </div>
-     {renderStillWatchingPrompt()}
     </div>
   );
 }
