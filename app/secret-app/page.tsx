@@ -7578,6 +7578,7 @@ function MainApp({ user }: { user: any }) {
         {renderBackgroundStatusIndicator()}
         {renderImmersionTimerWidget()}
         {renderProfileModal()} 
+        {renderStillWatchingPrompt()}
         {/* Delete Deck Confirmation Modal */}
       {showDeleteModal && deckToDelete && (
         <div style={{
