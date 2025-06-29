@@ -1244,7 +1244,13 @@ function MainApp({ user }: { user: any }) {
    const playVerseAudio = async (verseNumber: number, globalAyahNumber: number, isFromQueue: boolean = false) => {
       try {
         console.log('🎵 Playing verse:', verseNumber, 'Global ayah:', globalAyahNumber, 'From queue:', isFromQueue);
-        
+
+        if (player && player.getPlayerState && player.getPlayerState() === window.YT.PlayerState.PLAYING) {
+          if (userSettings.video_keep_playing_background) {
+            player.pauseVideo();
+            console.log('🎵 Paused YouTube video for Quran audio');
+          }
+        }
         // Stop any currently playing audio
         if (currentAudio) {
           currentAudio.pause();
@@ -2392,6 +2398,16 @@ function MainApp({ user }: { user: any }) {
           console.log('🔄 About to call handleCreateOrGetDeck...');
           handleCreateOrGetDeck(videoData.title, currentVideoId);
           console.log('✅ handleCreateOrGetDeck called');
+          
+          // Restore video timestamp if this is a saved video
+          if (savedVideoState && savedVideoState.timestamp > 0) {
+            console.log('🔄 Restoring video timestamp:', savedVideoState.timestamp);
+            setTimeout(() => {
+              if (event.target && event.target.seekTo) {
+                event.target.seekTo(savedVideoState.timestamp, true);
+              }
+            }, 1000);
+          }
         } else {
           console.log('❌ No user ID - cannot create deck');
         }
@@ -2412,6 +2428,19 @@ function MainApp({ user }: { user: any }) {
       
       updateTime(); // Start the animation loop
       setPlayer(event.target);
+      // Start timestamp saving interval
+      if (videoTimestampInterval) {
+        clearInterval(videoTimestampInterval);
+      }
+      
+      const interval = setInterval(() => {
+        if (event.target && event.target.getCurrentTime && user?.id && currentVideoId) {
+          const currentTime = event.target.getCurrentTime();
+          saveVideoState(user.id, videoUrl, currentTime);
+        }
+      }, 3000); // Save every 3 seconds
+      
+      setVideoTimestampInterval(interval);
     } catch (error) {
       console.error('Error in onPlayerReady:', error);
     }
