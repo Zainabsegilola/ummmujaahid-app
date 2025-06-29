@@ -2828,15 +2828,26 @@ function MainApp({ user }: { user: any }) {
   };
 
   const onPlayerStateChange = (event: any) => {
-    console.log('🔥 FUNCTION CALLED! Event data:', event.data);
-    console.log('🔥 Playing state constants:', {
-      PLAYING: window.YT?.PlayerState?.PLAYING,
-      PAUSED: window.YT?.PlayerState?.PAUSED,
-      ENDED: window.YT?.PlayerState?.ENDED
-    });
-    
     try {
-      setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
+      const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
+      setIsPlaying(isNowPlaying);
+      
+      // Immersion tracking
+      if (isNowPlaying) {
+        // Start immersion session when video starts playing
+        if (!sessionStartTime) {
+          startImmersionSession();
+        }
+      } else if (event.data === window.YT.PlayerState.PAUSED) {
+        // Pause the timer but don't stop session
+        if (immersionInterval) {
+          clearInterval(immersionInterval);
+          setImmersionInterval(null);
+        }
+      } else if (event.data === window.YT.PlayerState.ENDED) {
+        // Stop the session when video ends
+        stopImmersionSession();
+      }
     } catch (error) {
       console.error('Error in onPlayerStateChange:', error);
     }
