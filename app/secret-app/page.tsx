@@ -308,7 +308,7 @@ function ProfileDropdown({ user, onLogout, onGoToSettings }) {
           <button
             onClick={() => {
               setIsOpen(false);
-              // Future: navigate to profile page
+              setShowProfileModal(true); // Open profile modal
             }}
             style={{
               width: '100%',
@@ -382,6 +382,296 @@ function ProfileDropdown({ user, onLogout, onGoToSettings }) {
     </div>
   );
 }
+const renderProfileModal = () => {
+  if (!showProfileModal) return null;
+
+  const [userStats, setUserStats] = useState({
+    today: { focused_seconds: 0, freeflow_seconds: 0, total_seconds: 0 },
+    week: { total_seconds: 0, days_active: 0 },
+    allTime: { total_seconds: 0, longest_session: 0 }
+  });
+
+  // Helper function to format seconds into readable time
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
+    } else {
+      return `${seconds}s`;
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        padding: '24px',
+        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
+        maxWidth: '500px',
+        width: '90%',
+        maxHeight: '80vh',
+        overflowY: 'auto'
+      }}>
+        
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '24px'
+        }}>
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: '700',
+            margin: '0',
+            color: '#111827'
+          }}>
+            Profile
+          </h2>
+          <button
+            onClick={() => setShowProfileModal(false)}
+            style={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              fontSize: '24px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* User Info */}
+        <div style={{
+          backgroundColor: '#f3f0ff',
+          padding: '16px',
+          borderRadius: '12px',
+          marginBottom: '24px',
+          border: '2px solid #e9d5ff'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              backgroundColor: '#8b5cf6',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px',
+              color: 'white'
+            }}>
+              👤
+            </div>
+            <div>
+              <div style={{
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '4px'
+              }}>
+                {user?.email}
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: '#8b5cf6'
+              }}>
+                Arabic Learning Journey
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Immersion Stats */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          border: '2px solid #8b5cf6',
+          padding: '20px'
+        }}>
+          
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '20px'
+          }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              backgroundColor: '#8b5cf6',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '16px'
+            }}>
+              ⏱️
+            </div>
+            <h3 style={{
+              fontSize: '16px',
+              fontWeight: '600',
+              margin: '0',
+              color: '#111827'
+            }}>
+              Immersion Stats
+            </h3>
+          </div>
+          
+          {/* Stats Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
+            gap: '12px',
+            marginBottom: '16px'
+          }}>
+            
+            {/* Today */}
+            <div style={{
+              backgroundColor: '#f0fdf4',
+              padding: '12px',
+              borderRadius: '8px',
+              border: '1px solid #d1fae5',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#059669',
+                marginBottom: '4px'
+              }}>
+                {formatTime(userStats.today.total_seconds)}
+              </div>
+              <div style={{
+                fontSize: '10px',
+                color: '#065f46',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Today
+              </div>
+            </div>
+            
+            {/* This Week */}
+            <div style={{
+              backgroundColor: '#fef3c7',
+              padding: '12px',
+              borderRadius: '8px',
+              border: '1px solid #fde68a',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#d97706',
+                marginBottom: '4px'
+              }}>
+                {formatTime(userStats.week.total_seconds)}
+              </div>
+              <div style={{
+                fontSize: '10px',
+                color: '#92400e',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                This Week
+              </div>
+            </div>
+            
+            {/* All Time */}
+            <div style={{
+              backgroundColor: '#f3f0ff',
+              padding: '12px',
+              borderRadius: '8px',
+              border: '1px solid #e9d5ff',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#8b5cf6',
+                marginBottom: '4px'
+              }}>
+                {formatTime(userStats.allTime.total_seconds)}
+              </div>
+              <div style={{
+                fontSize: '10px',
+                color: '#7c3aed',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                All Time
+              </div>
+            </div>
+          </div>
+          
+          {/* Progress Bar */}
+          <div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '6px'
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151' }}>
+                Today's Goal Progress
+              </span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                {Math.min(100, Math.round((userStats.today.total_seconds / (30 * 60)) * 100))}%
+              </span>
+            </div>
+            
+            <div style={{
+              width: '100%',
+              height: '6px',
+              backgroundColor: '#f3f4f6',
+              borderRadius: '3px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: `${Math.min(100, (userStats.today.total_seconds / (30 * 60)) * 100)}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #8b5cf6 0%, #a855f7 100%)',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+            
+            <div style={{
+              fontSize: '10px',
+              color: '#6b7280',
+              marginTop: '4px',
+              textAlign: 'center'
+            }}>
+              Goal: 30 minutes daily
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Main App Component
 function MainApp({ user }: { user: any }) {
@@ -500,7 +790,8 @@ function MainApp({ user }: { user: any }) {
   const [immersionInterval, setImmersionInterval] = useState(null);
   const [currentSessionType, setCurrentSessionType] = useState('focused'); // 'focused' or 'freeflow'
   const [showStillWatchingPrompt, setShowStillWatchingPrompt] = useState(false);
-    
+  //profile states
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
@@ -7225,7 +7516,7 @@ function MainApp({ user }: { user: any }) {
               { id: 'read', label: 'Read Books' },
               { id: 'community', label: 'Community' },
               { id: 'leaderboard', label: 'Leaderboard' },
-              { id: 'profile', label: 'Profile' } 
+              
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -7286,6 +7577,7 @@ function MainApp({ user }: { user: any }) {
         {renderBackgroundVideoControls()}
         {renderBackgroundStatusIndicator()}
         {renderImmersionTimerWidget()}
+        {renderProfileModal()} 
         {/* Delete Deck Confirmation Modal */}
       {showDeleteModal && deckToDelete && (
         <div style={{
