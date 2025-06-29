@@ -6494,9 +6494,22 @@ function MainApp({ user }: { user: any }) {
   
         {/* Add CSS animation for pulse effect */}
         <style jsx>{`
+          @keyframes blink {
+            0%, 50% { border-color: #8b5cf6; }
+            51%, 100% { border-color: transparent; }
+          }
+          @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+          }
           @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
           }
         `}</style>
       </div>
