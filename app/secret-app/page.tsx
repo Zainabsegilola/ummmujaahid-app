@@ -498,6 +498,15 @@ function MainApp({ user }: { user: any }) {
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [playbackMode, setPlaybackMode] = useState<'single' | 'full' | 'range'>('single');
 
+  //immersion states
+  const [immersionTimer, setImmersionTimer] = useState(0); // seconds of current session
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [lastImmersionSave, setLastImmersionSave] = useState(0);
+  const [isTabFocused, setIsTabFocused] = useState(true);
+  const [immersionInterval, setImmersionInterval] = useState(null);
+  const [currentSessionType, setCurrentSessionType] = useState('focused'); // 'focused' or 'freeflow'
+  const [showStillWatchingPrompt, setShowStillWatchingPrompt] = useState(false);
+
   // community states
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
   const [newPost, setNewPost] = useState('');
@@ -606,6 +615,97 @@ function MainApp({ user }: { user: any }) {
   const backFromSettings = () => {
     setActiveTab(previousTab);
   };
+  const startImmersionSession = () => {
+    if (!user?.id || !currentVideoId) return;
+    
+    console.log('🎯 Starting immersion session');
+    const now = new Date();
+    setSessionStartTime(now);
+    setImmersionTimer(0);
+    setLastImmersionSave(0);
+    
+    // Start the immersion timer (updates every second)
+    const interval = setInterval(() => {
+      setImmersionTimer(prev => {
+        const newTime = prev + 1;
+        
+        // Save to database every 30 seconds
+        if (newTime > 0 && newTime % 30 === 0) {
+          saveImmersionProgress(newTime);
+        }
+        
+        // Show "still watching?" after 90 minutes (5400 seconds)
+        if (newTime === 5400) {
+          setShowStillWatchingPrompt(true);
+        }
+        
+        return newTime;
+      });
+    }, 1000);
+    
+    setImmersionInterval(interval);
+  };
+  const stopImmersionSession = async () => {
+    if (!sessionStartTime || !user?.id) return;
+    
+    console.log('⏹️ Stopping immersion session');
+    
+    // Clear the interval
+    if (immersionInterval) {
+      clearInterval(immersionInterval);
+      setImmersionInterval(null);
+    }
+    
+    // Final save of any remaining time
+    if (immersionTimer > 0) {
+      await saveImmersionProgress(immersionTimer, true);
+    }
+    
+    // Reset session state
+    setSessionStartTime(null);
+    setImmersionTimer(0);
+    setLastImmersionSave(0);
+    setShowStillWatchingPrompt(false);
+  };
+  const saveImmersionProgress = async (totalSeconds, isFinalSave = false) => {
+    if (!user?.id || !currentVideoId || !sessionStartTime) return;
+    
+    try {
+      console.log(`💾 Saving immersion progress: ${totalSeconds}s (${currentSessionType})`);
+      
+      // Calculate time since last save
+      const timeToSave = totalSeconds - lastImmersionSave;
+      if (timeToSave <= 0 && !isFinalSave) return;
+      
+      // Determine focused vs freeflow time
+      const focusedTime = currentSessionType === 'focused' ? timeToSave : 0;
+      const freeflowTime = currentSessionType === 'freeflow' ? timeToSave : 0;
+      
+      // Update user's total immersion time
+      const { data: currentSettings } = await getUserSettings(user.id);
+      const newTotalImmersion = (currentSettings?.total_immersion_seconds || 0) + timeToSave;
+      
+      await updateUserSettings(user.id, {
+        total_immersion_seconds: newTotalImmersion,
+        current_session_start: sessionStartTime.toISOString(),
+        last_immersion_save: new Date().toISOString()
+      });
+      
+      // Update daily stats
+      await updateDailyImmersionStats(user.id, focusedTime, freeflowTime);
+      
+      // Save session details
+      if (isFinalSave) {
+        await saveImmersionSession(user.id, currentVideoId, currentVideoTitle, sessionStartTime, new Date(), focusedTime, freeflowTime);
+      }
+      
+      setLastImmersionSave(totalSeconds);
+      
+    } catch (error) {
+      console.error('❌ Error saving immersion progress:', error);
+    }
+  };
+
 
     
     // Load cards for a specific deck
