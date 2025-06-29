@@ -7224,7 +7224,7 @@ function MainApp({ user }: { user: any }) {
               { id: 'watch', label: 'Watch Videos' },
               { id: 'read', label: 'Read Books' },
               { id: 'community', label: 'Community' },
-              { id: 'leaderboard', label: 'Leaderboard' }
+              { id: 'leaderboard', label: 'Leaderboard' },
               { id: 'profile', label: 'Profile' } 
             ].map((tab) => (
               <button
