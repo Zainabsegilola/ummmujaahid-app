@@ -4475,13 +4475,19 @@ function MainApp({ user }: { user: any }) {
       
       {currentVideoId && (
        <div style={{ 
-              display: 'flex', 
-              gap: '16px', 
-              height: 'calc(100vh - 200px)',
-              visibility: activeTab === 'watch' || !userSettings.video_keep_playing_background ? 'visible' : 'hidden',
-              position: activeTab === 'watch' ? 'relative' : 'absolute',
-              top: activeTab === 'watch' ? 'auto' : '-9999px'
-        }}>
+            display: 'flex', 
+            gap: '16px', 
+            height: 'calc(100vh - 200px)',
+            visibility: activeTab === 'watch' ? 'visible' : 'hidden',
+            position: activeTab === 'watch' ? 'relative' : 'fixed',
+            top: activeTab === 'watch' ? 'auto' : '0',
+            left: activeTab === 'watch' ? 'auto' : '0',
+            width: activeTab === 'watch' ? 'auto' : '1px',
+            height: activeTab === 'watch' ? 'calc(100vh - 200px)' : '1px',
+            overflow: 'hidden',
+            pointerEvents: activeTab === 'watch' ? 'auto' : 'none',
+            zIndex: activeTab === 'watch' ? 'auto' : '-1'
+          }}>
           <div style={{ width: '30%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: 'auto' }}>
               <div style={{ aspectRatio: '16/9', backgroundColor: '#000', borderRadius: '8px', marginBottom: '12px' }}>
