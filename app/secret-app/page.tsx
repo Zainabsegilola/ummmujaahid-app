@@ -483,6 +483,10 @@ function MainApp({ user }: { user: any }) {
     current_video_timestamp: 0,
     video_keep_playing_background: true
   });
+  const [isVideoPlayingBackground, setIsVideoPlayingBackground] = useState(false);
+  const [backgroundVideoInfo, setBackgroundVideoInfo] = useState(null);
+  const [showBackgroundControls, setShowBackgroundControls] = useState(false);
+  const [backgroundVideoError, setBackgroundVideoError] = useState('');
   const [savedVideoState, setSavedVideoState] = useState(null);
   const [videoTimestampInterval, setVideoTimestampInterval] = useState(null);
   const [previousTab, setPreviousTab] = useState('my-cards'); // Track which tab to return to
@@ -2273,10 +2277,31 @@ function MainApp({ user }: { user: any }) {
 
   useEffect(() => {
     if (activeTab === 'watch') {
-        loadYouTubeAPI();
+      loadYouTubeAPI();
+      // Show background controls if video was playing in background
+      if (isVideoPlayingBackground) {
+        setShowBackgroundControls(false);
+        setIsVideoPlayingBackground(false);
+      }
+    } else {
+      // User switched away from watch tab
+      if (player && isPlaying && userSettings.video_keep_playing_background && currentVideoId) {
+        // Enable background mode
+        setIsVideoPlayingBackground(true);
+        setShowBackgroundControls(true);
+        setBackgroundVideoInfo({
+          title: currentVideoTitle,
+          videoId: currentVideoId,
+          timestamp: player.getCurrentTime ? player.getCurrentTime() : 0
+        });
+        console.log('🎵 Video continues playing in background');
+      } else if (player && isPlaying && !userSettings.video_keep_playing_background) {
+        // Stop video if background play is disabled
+        player.pauseVideo();
+        console.log('⏸ Video paused - background play disabled');
+      }
     }
-    // Remove the cleanup that destroys the player
-    }, [activeTab]);
+  }, [activeTab, player, isPlaying, userSettings.video_keep_playing_background, currentVideoId, currentVideoTitle]);
 
   useEffect(() => {
     if (currentVideoId && window.YT) {
@@ -2415,9 +2440,15 @@ function MainApp({ user }: { user: any }) {
     
     try {
       if (player) {
-        console.log('🔄 Destroying existing player');
-        player.destroy();
-        setPlayer(null);
+        // Only destroy player if NOT in background mode or if it's a new video
+        if (!isVideoPlayingBackground || (backgroundVideoInfo && backgroundVideoInfo.videoId !== currentVideoId)) {
+          console.log('🔄 Destroying existing player');
+          player.destroy();
+          setPlayer(null);
+        } else {
+          console.log('🎵 Keeping existing player for background mode');
+          return; // Don't recreate player if it's the same video in background mode
+        }
       }
       
       console.log('🔄 Creating new YouTube player...');
@@ -2985,6 +3016,169 @@ function MainApp({ user }: { user: any }) {
       setCardMessage('❌ Unexpected error occurred');
       setTimeout(() => setCardMessage(''), 3000);
     }
+  };
+  // Background Video Controls Component
+  const renderBackgroundVideoControls = () => {
+    if (!showBackgroundControls || !backgroundVideoInfo) return null;
+  
+    return (
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        backgroundColor: 'white',
+        padding: '12px 16px',
+        borderRadius: '12px',
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
+        border: '2px solid #8b5cf6',
+        zIndex: 1000,
+        minWidth: '280px',
+        maxWidth: '350px'
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '600', color: '#8b5cf6' }}>
+            🎵 Playing in Background
+          </div>
+          <button
+            onClick={() => {
+              if (player) {
+                player.pauseVideo();
+              }
+              setShowBackgroundControls(false);
+              setIsVideoPlayingBackground(false);
+              setBackgroundVideoInfo(null);
+            }}
+            style={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              color: '#6b7280',
+              cursor: 'pointer',
+              fontSize: '16px',
+              padding: '2px'
+            }}
+            title="Stop background playback"
+          >
+            ✕
+          </button>
+        </div>
+  
+        {/* Video Info */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ 
+            fontSize: '14px', 
+            fontWeight: '600', 
+            color: '#374151',
+            marginBottom: '4px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>
+            {backgroundVideoInfo.title || 'Video Playing'}
+          </div>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            {formatTime(backgroundVideoInfo.timestamp || 0)}
+          </div>
+        </div>
+  
+        {/* Controls */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              if (player) {
+                if (isPlaying) {
+                  player.pauseVideo();
+                } else {
+                  player.playVideo();
+                }
+              }
+            }}
+            style={{
+              backgroundColor: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              flex: '1'
+            }}
+          >
+            {isPlaying ? '⏸ Pause' : '▶ Play'}
+          </button>
+          
+          <button
+            onClick={() => {
+              setActiveTab('watch');
+            }}
+            style={{
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              flex: '1'
+            }}
+          >
+            📺 Return to Video
+          </button>
+        </div>
+  
+        {/* Error Display */}
+        {backgroundVideoError && (
+          <div style={{
+            marginTop: '8px',
+            padding: '6px 8px',
+            backgroundColor: '#fef2f2',
+            color: '#dc2626',
+            borderRadius: '4px',
+            fontSize: '11px'
+          }}>
+            {backgroundVideoError}
+          </div>
+        )}
+      </div>
+    );
+  };
+  // Background Status Indicator Component
+  const renderBackgroundStatusIndicator = () => {
+    if (!isVideoPlayingBackground || activeTab === 'watch' || !backgroundVideoInfo) return null;
+  
+    return (
+      <div style={{
+        position: 'fixed',
+        top: '80px',
+        right: '20px',
+        backgroundColor: '#8b5cf6',
+        color: 'white',
+        padding: '8px 12px',
+        borderRadius: '20px',
+        fontSize: '12px',
+        fontWeight: '600',
+        zIndex: 999,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+        cursor: 'pointer'
+      }}
+      onClick={() => setActiveTab('watch')}
+      title="Click to return to video"
+      >
+        <div style={{
+          width: '6px',
+          height: '6px',
+          backgroundColor: '#10b981',
+          borderRadius: '50%',
+          animation: 'pulse 1.5s infinite'
+        }}></div>
+        <span>🎵 Video Playing</span>
+      </div>
+    );
   };
 
   // Render functions
@@ -4275,7 +4469,14 @@ function MainApp({ user }: { user: any }) {
       </div>
       
       {currentVideoId && (
-        <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
+       <div style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              height: 'calc(100vh - 200px)',
+              visibility: activeTab === 'watch' || !userSettings.video_keep_playing_background ? 'visible' : 'hidden',
+              position: activeTab === 'watch' ? 'relative' : 'absolute',
+              top: activeTab === 'watch' ? 'auto' : '-9999px'
+        }}>
           <div style={{ width: '30%', display: 'flex', flexDirection: 'column' }}>
             <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: 'auto' }}>
               <div style={{ aspectRatio: '16/9', backgroundColor: '#000', borderRadius: '8px', marginBottom: '12px' }}>
@@ -6377,6 +6578,8 @@ function MainApp({ user }: { user: any }) {
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px' }}>
         {renderTabContent()}
         {renderCardModal()}
+        {renderBackgroundVideoControls()}
+        {renderBackgroundStatusIndicator()}
         {/* Delete Deck Confirmation Modal */}
       {showDeleteModal && deckToDelete && (
         <div style={{
