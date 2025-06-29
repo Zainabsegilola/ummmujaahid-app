@@ -526,9 +526,54 @@ function MainApp({ user }: { user: any }) {
       const { data, error } = await getUserSettings(user.id);
       if (!error && data) {
         setUserSettings(data);
+        
+        // Load saved video state
+        if (data.current_video_url) {
+          setSavedVideoState({
+            url: data.current_video_url,
+            timestamp: data.current_video_timestamp || 0
+          });
+          setVideoUrl(data.current_video_url);
+          setCurrentVideoId(extractVideoId(data.current_video_url));
+        }
       }
     } catch (error) {
       console.error('Error loading user settings:', error);
+    }
+  };
+  const saveCurrentVideoState = async () => {
+    if (!user?.id || !currentVideoId || !player) return;
+    
+    try {
+      const currentTime = player.getCurrentTime();
+      await saveVideoState(user.id, videoUrl, currentTime);
+      console.log('✅ Video state saved:', { videoUrl, currentTime });
+    } catch (error) {
+      console.error('❌ Failed to save video state:', error);
+    }
+  };
+
+  const clearCurrentVideoState = async () => {
+    if (!user?.id) return;
+    
+    try {
+      await clearVideoState(user.id);
+      setSavedVideoState(null);
+      setVideoUrl('');
+      setCurrentVideoId('');
+      setCurrentVideoTitle('');
+      setTranscript([]);
+      
+      if (player) {
+        player.stopVideo();
+      }
+      
+      setCardMessage('✅ Video cleared successfully');
+      setTimeout(() => setCardMessage(''), 3000);
+    } catch (error) {
+      console.error('❌ Failed to clear video state:', error);
+      setCardMessage('❌ Failed to clear video');
+      setTimeout(() => setCardMessage(''), 3000);
     }
   };
   const saveUserSettings = async (newSettings) => {
@@ -2152,12 +2197,7 @@ function MainApp({ user }: { user: any }) {
     if (activeTab === 'watch') {
         loadYouTubeAPI();
     }
-    return () => {
-        // Cancel animation frame instead of interval
-        if (intervalRef.current) {
-        cancelAnimationFrame(intervalRef.current);
-        }
-    };
+    // Remove the cleanup that destroys the player
     }, [activeTab]);
 
   useEffect(() => {
