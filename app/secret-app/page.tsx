@@ -39,7 +39,8 @@ import {
   getVideoState,
   clearVideoState,
   updateVideoBackgroundSetting,
-  updateDailyImmersionStats
+  updateDailyImmersionStats,
+  saveImmersionSession,
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
