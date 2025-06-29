@@ -4108,6 +4108,23 @@ function MainApp({ user }: { user: any }) {
           >
             {isLoadingTranscript ? 'Loading...' : 'Load'}
           </button>
+          {currentVideoId && (
+              <button
+                onClick={clearCurrentVideoState}
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                🗑️ Clear
+              </button>
+            )}
           
           {transcript.length > 0 && (
             <button
@@ -4129,6 +4146,30 @@ function MainApp({ user }: { user: any }) {
               {isProcessingHarakat ? '⏳' : 'ً◌'} Harakat
             </button>
           )}
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '12px',
+            fontWeight: '500',
+            color: '#374151',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={userSettings.video_keep_playing_background}
+              onChange={async (e) => {
+                const newValue = e.target.checked;
+                setUserSettings(prev => ({
+                  ...prev,
+                  video_keep_playing_background: newValue
+                }));
+                await updateVideoBackgroundSetting(user.id, newValue);
+              }}
+              style={{ marginRight: '4px' }}
+            />
+            🎵 Keep playing in background
+          </label>
         </div>
         
         {cardMessage && (
