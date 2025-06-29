@@ -626,6 +626,7 @@ function MainApp({ user }: { user: any }) {
     setActiveTab(previousTab);
   };
   const startImmersionSession = () => {
+    console.log('🎯 startImmersionSession called!'); 
     if (!user?.id || !currentVideoId) return;
     
     console.log('🎯 Starting immersion session');
