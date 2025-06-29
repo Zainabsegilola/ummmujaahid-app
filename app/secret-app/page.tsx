@@ -490,7 +490,14 @@ function MainApp({ user }: { user: any }) {
   const [savedVideoState, setSavedVideoState] = useState(null);
   const [videoTimestampInterval, setVideoTimestampInterval] = useState(null);
   const [previousTab, setPreviousTab] = useState('my-cards'); // Track which tab to return to
+   // Immersion tracking states
+  const [immersionTimer, setImmersionTimer] = useState(0);
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [isTabFocused, setIsTabFocused] = useState(true);
+  const [immersionInterval, setImmersionInterval] = useState(null);
+  
 
+  
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -498,14 +505,8 @@ function MainApp({ user }: { user: any }) {
   const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
   const [playbackMode, setPlaybackMode] = useState<'single' | 'full' | 'range'>('single');
 
-  //immersion states
-  const [immersionTimer, setImmersionTimer] = useState(0); // seconds of current session
-  const [sessionStartTime, setSessionStartTime] = useState(null);
-  const [lastImmersionSave, setLastImmersionSave] = useState(0);
-  const [isTabFocused, setIsTabFocused] = useState(true);
-  const [immersionInterval, setImmersionInterval] = useState(null);
-  const [currentSessionType, setCurrentSessionType] = useState('focused'); // 'focused' or 'freeflow'
-  const [showStillWatchingPrompt, setShowStillWatchingPrompt] = useState(false);
+  
+
 
   // community states
   const [communityPosts, setCommunityPosts] = useState<any[]>([]);
