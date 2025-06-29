@@ -491,11 +491,14 @@ function MainApp({ user }: { user: any }) {
   const [videoTimestampInterval, setVideoTimestampInterval] = useState(null);
   const [previousTab, setPreviousTab] = useState('my-cards'); // Track which tab to return to
    // Immersion tracking states
-  const [immersionTimer, setImmersionTimer] = useState(0);
+  const [immersionTimer, setImmersionTimer] = useState(0); // seconds of current session
   const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [lastImmersionSave, setLastImmersionSave] = useState(0);
   const [isTabFocused, setIsTabFocused] = useState(true);
   const [immersionInterval, setImmersionInterval] = useState(null);
-  
+  const [currentSessionType, setCurrentSessionType] = useState('focused'); // 'focused' or 'freeflow'
+  const [showStillWatchingPrompt, setShowStillWatchingPrompt] = useState(false);
+    
 
   
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
@@ -2371,6 +2374,32 @@ function MainApp({ user }: { user: any }) {
       loadUserSettings();
     }
   }, [user]);
+  useEffect(() => {
+    if (isTabFocused && activeTab === 'watch') {
+      setCurrentSessionType('focused');
+    } else {
+      setCurrentSessionType('freeflow');
+    }
+  }, [activeTab, isTabFocused]);
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsTabFocused(isVisible);
+      
+      // Update session type based on tab focus and current tab
+      if (isVisible && activeTab === 'watch') {
+        setCurrentSessionType('focused');
+      } else {
+        setCurrentSessionType('freeflow');
+      }
+    };
+  
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     if (user?.id) loadUserDecks();
@@ -2657,7 +2686,27 @@ function MainApp({ user }: { user: any }) {
 
   const onPlayerStateChange = (event: any) => {
     try {
-      setIsPlaying(event.data === window.YT.PlayerState.PLAYING);
+      const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
+      setIsPlaying(isNowPlaying);
+      
+      // Immersion tracking
+      if (isNowPlaying) {
+        // Start immersion session when video starts playing
+        if (!sessionStartTime) {
+          startImmersionSession();
+        }
+      } else if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
+        // Don't stop session on pause, just pause the timer
+        if (immersionInterval) {
+          clearInterval(immersionInterval);
+          setImmersionInterval(null);
+        }
+        
+        // If video ended, stop the session
+        if (event.data === window.YT.PlayerState.ENDED) {
+          stopImmersionSession();
+        }
+      }
     } catch (error) {
       console.error('Error in onPlayerStateChange:', error);
     }
