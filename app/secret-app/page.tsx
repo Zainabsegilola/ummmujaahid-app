@@ -2980,7 +2980,7 @@ function MainApp({ user }: { user: any }) {
     } else {
       setCurrentSessionType('freeflow');
     }
-  }, [activeTab, isTabFocused]);
+  }, [activeTab]);
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
