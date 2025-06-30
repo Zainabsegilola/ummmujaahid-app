@@ -1406,7 +1406,7 @@ function MainApp({ user }: { user: any }) {
 // RENDER FUNCTIONS
   // STEP 6: Add this Settings page render function
 // Add this function after your other render functions (around line 1500-2000)
- /* const renderStillWatchingPrompt = () => {
+   const renderStillWatchingPrompt = () => {
     if (!showStillWatchingPrompt) return null;
   
     const handleStillWatching = () => {
@@ -1507,7 +1507,7 @@ function MainApp({ user }: { user: any }) {
         </div>
       </div>
     );
-  };*/
+  };
   const renderImmersionStats = () => {
     if (!immersionSession.startTime || immersionSession.totalSeconds === 0) return null;
     
