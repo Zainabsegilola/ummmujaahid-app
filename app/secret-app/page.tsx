@@ -47,11 +47,16 @@ import {
   interactWithPostPersistent,
   getUserPostInteractions,
   updateUserDisplayName,
-  getUserProfile,
   loadUserStatsAndProfile,
   updateUserProfileComplete,
   calculateImmersionStreak,
-  calculateCardStudyStreak
+  calculateCardStudyStreak,
+  createCommunityPost,
+  getCommunityPosts,
+  interactWithPost,
+  testCommunityConnection,
+  createOrUpdateUserProfile,
+  getUserProfile
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
