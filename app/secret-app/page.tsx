@@ -47,7 +47,11 @@ import {
   interactWithPostPersistent,
   getUserPostInteractions,
   updateUserDisplayName,
-  getUserProfile
+  getUserProfile,
+  loadUserStatsAndProfile,
+  updateUserProfileComplete,
+  calculateImmersionStreak,
+  calculateCardStudyStreak
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
@@ -489,7 +493,14 @@ function MainApp({ user }: { user: any }) {
     display_name: '',
     username: '',
     arabic_name: '',
-    bio: ''
+    bio: '',
+    avatar_url: ''
+  });
+  const [selectedAvatar, setSelectedAvatar] = useState(null);
+  const [userProfileData, setUserProfileData] = useState({
+    profile: {},
+    stats: {},
+    streaks: {}
   });
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [userSettings, setUserSettings] = useState({
@@ -651,6 +662,8 @@ function MainApp({ user }: { user: any }) {
       }
     };
   
+    const { profile, stats, streaks } = userProfileData;
+  
     return (
       <div style={{
         position: 'fixed',
@@ -705,10 +718,10 @@ function MainApp({ user }: { user: any }) {
             </button>
           </div>
   
-          {/* User Info */}
+          {/* User Profile Info - NEW SECTION ABOVE STATS */}
           <div style={{
             backgroundColor: '#f3f0ff',
-            padding: '16px',
+            padding: '20px',
             borderRadius: '12px',
             marginBottom: '24px',
             border: '2px solid #e9d5ff'
@@ -716,41 +729,108 @@ function MainApp({ user }: { user: any }) {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px'
+              gap: '16px'
             }}>
               <div style={{
-                width: '48px',
-                height: '48px',
+                width: '64px',
+                height: '64px',
                 backgroundColor: '#8b5cf6',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '20px',
-                color: 'white'
+                fontSize: '24px',
+                color: 'white',
+                overflow: 'hidden'
               }}>
-                👤
+                {profile?.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt="Avatar" 
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover' 
+                    }}
+                  />
+                ) : '👤'}
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{
-                  fontSize: '16px',
-                  fontWeight: '600',
+                  fontSize: '20px',
+                  fontWeight: '700',
                   color: '#374151',
                   marginBottom: '4px'
                 }}>
-                  {user?.email}
+                  {profile?.display_name || user?.email?.split('@')[0] || 'User'}
                 </div>
                 <div style={{
-                  fontSize: '12px',
-                  color: '#8b5cf6'
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  marginBottom: '8px'
                 }}>
-                  Arabic Learning Journey
+                  {user?.email}
+                </div>
+                
+                {/* Streaks Row */}
+                <div style={{
+                  display: 'flex',
+                  gap: '16px',
+                  fontSize: '12px'
+                }}>
+                  <div style={{
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontWeight: '600'
+                  }}>
+                    🎯 {streaks?.immersion_streak || 0} day immersion streak
+                  </div>
+                  <div style={{
+                    backgroundColor: '#ddd6fe',
+                    color: '#7c3aed',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    fontWeight: '600'
+                  }}>
+                    📚 {streaks?.card_study_streak || 0} day card streak
+                  </div>
                 </div>
               </div>
             </div>
+  
+            {/* Bio Section */}
+            {profile?.bio && (
+              <div style={{
+                marginTop: '16px',
+                padding: '12px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                fontSize: '14px',
+                color: '#374151',
+                fontStyle: 'italic'
+              }}>
+                "{profile.bio}"
+              </div>
+            )}
+  
+            {/* Arabic Name */}
+            {profile?.arabic_name && (
+              <div style={{
+                marginTop: '12px',
+                textAlign: 'center',
+                fontSize: '18px',
+                color: '#8b5cf6',
+                fontWeight: '600',
+                direction: 'rtl'
+              }}>
+                {profile.arabic_name}
+              </div>
+            )}
           </div>
   
-          {/* Immersion Stats */}
+          {/* Immersion Stats - EXISTING SECTION */}
           <div style={{
             backgroundColor: 'white',
             borderRadius: '12px',
@@ -765,54 +845,63 @@ function MainApp({ user }: { user: any }) {
               marginBottom: '20px'
             }}>
               <div style={{
-                width: '32px',
-                height: '32px',
+                width: '40px',
+                height: '40px',
                 backgroundColor: '#8b5cf6',
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '16px'
+                fontSize: '18px'
               }}>
-                ⏱️
+                📊
               </div>
-              <h3 style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                margin: '0',
-                color: '#111827'
-              }}>
-                Immersion Stats
-              </h3>
+              <div>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  margin: '0',
+                  color: '#374151'
+                }}>
+                  Immersion Statistics
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  margin: '4px 0 0 0'
+                }}>
+                  Your Arabic learning progress
+                </p>
+              </div>
             </div>
-            
+  
             {/* Stats Grid */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
-              gap: '12px',
-              marginBottom: '16px'
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '16px',
+              marginBottom: '20px'
             }}>
               
               {/* Today */}
               <div style={{
-                backgroundColor: '#f0fdf4',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #d1fae5',
+                backgroundColor: '#f0f9ff',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid #bae6fd',
                 textAlign: 'center'
               }}>
                 <div style={{
-                  fontSize: '18px',
+                  fontSize: '24px',
                   fontWeight: '700',
-                  color: '#059669',
+                  color: '#0284c7',
                   marginBottom: '4px'
                 }}>
-                  {formatTime(userStats.today.total_seconds)}
+                  {formatTime(stats?.today?.total_seconds || 0)}
                 </div>
                 <div style={{
-                  fontSize: '10px',
-                  color: '#065f46',
+                  fontSize: '12px',
+                  color: '#0c4a6e',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
@@ -823,94 +912,100 @@ function MainApp({ user }: { user: any }) {
               {/* This Week */}
               <div style={{
                 backgroundColor: '#fef3c7',
-                padding: '12px',
-                borderRadius: '8px',
+                padding: '16px',
+                borderRadius: '12px',
                 border: '1px solid #fde68a',
                 textAlign: 'center'
               }}>
                 <div style={{
-                  fontSize: '18px',
+                  fontSize: '24px',
                   fontWeight: '700',
                   color: '#d97706',
                   marginBottom: '4px'
                 }}>
-                  {formatTime(userStats.week.total_seconds)}
+                  {formatTime(stats?.week?.total_seconds || 0)}
                 </div>
                 <div style={{
-                  fontSize: '10px',
+                  fontSize: '12px',
                   color: '#92400e',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
                   This Week
                 </div>
+                <div style={{
+                  fontSize: '10px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  {stats?.week?.days_active || 0} days active
+                </div>
               </div>
               
               {/* All Time */}
               <div style={{
                 backgroundColor: '#f3f0ff',
-                padding: '12px',
-                borderRadius: '8px',
+                padding: '16px',
+                borderRadius: '12px',
                 border: '1px solid #e9d5ff',
                 textAlign: 'center'
               }}>
                 <div style={{
-                  fontSize: '18px',
+                  fontSize: '24px',
                   fontWeight: '700',
                   color: '#8b5cf6',
                   marginBottom: '4px'
                 }}>
-                  {formatTime(userStats.allTime.total_seconds)}
+                  {formatTime(stats?.allTime?.total_seconds || 0)}
                 </div>
                 <div style={{
-                  fontSize: '10px',
+                  fontSize: '12px',
                   color: '#7c3aed',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
                   All Time
                 </div>
+                <div style={{
+                  fontSize: '10px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  Best: {formatTime(stats?.allTime?.longest_session || 0)}
+                </div>
               </div>
             </div>
             
-            {/* Progress Bar */}
-            <div>
+            {/* Progress Indicator */}
+            <div style={{ marginTop: '20px' }}>
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '6px'
+                marginBottom: '8px'
               }}>
-                <span style={{ fontSize: '12px', fontWeight: '500', color: '#374151' }}>
-                  Today's Goal Progress
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  Today's Progress
                 </span>
-                <span style={{ fontSize: '11px', color: '#6b7280' }}>
-                  {Math.min(100, Math.round((userStats.today.total_seconds / (30 * 60)) * 100))}%
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {Math.round(((stats?.today?.total_seconds || 0) / 3600) * 100)}% of 1hr goal
                 </span>
               </div>
               
               <div style={{
                 width: '100%',
-                height: '6px',
+                height: '8px',
                 backgroundColor: '#f3f4f6',
-                borderRadius: '3px',
+                borderRadius: '4px',
                 overflow: 'hidden'
               }}>
                 <div style={{
-                  width: `${Math.min(100, (userStats.today.total_seconds / (30 * 60)) * 100)}%`,
+                  width: `${Math.min(100, ((stats?.today?.total_seconds || 0) / 3600) * 100)}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, #8b5cf6 0%, #a855f7 100%)',
+                  backgroundColor: '#8b5cf6',
+                  borderRadius: '4px',
                   transition: 'width 0.3s ease'
                 }} />
-              </div>
-              
-              <div style={{
-                fontSize: '10px',
-                color: '#6b7280',
-                marginTop: '4px',
-                textAlign: 'center'
-              }}>
-                Goal: 30 minutes daily
               </div>
             </div>
           </div>
@@ -918,6 +1013,7 @@ function MainApp({ user }: { user: any }) {
       </div>
     );
   };
+
 
   const clearCurrentVideoState = async () => {
     if (!user?.id) return;
@@ -1526,329 +1622,568 @@ function MainApp({ user }: { user: any }) {
     );
   };
   const renderSettingsPage = () => (
-    <div>
-      {/* Header with back button */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '24px',
-        padding: '16px',
-        backgroundColor: 'white',
-        borderRadius: '8px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            onClick={backFromSettings}
-            style={{
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              padding: '8px 16px',
-              borderRadius: '6px',
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}
-          >
-            ← Back
-          </button>
-          
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0', color: '#111827' }}>
-              Settings
-            </h2>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
-              Manage your app preferences and study settings
-            </p>
-          </div>
-        </div>
-      </div>
-  
-      {/* Settings message */}
-      {cardMessage && (
-        <div style={{
-          marginBottom: '16px',
-          padding: '12px',
-          backgroundColor: cardMessage.includes('✅') ? '#f0fdf4' : '#fef2f2',
-          color: cardMessage.includes('✅') ? '#059669' : '#dc2626',
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: '500'
+      <div>
+        {/* Header with back button */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '24px',
+          padding: '16px',
+          backgroundColor: 'white',
+          borderRadius: '8px'
         }}>
-          {cardMessage}
-        </div>
-      )}
-  
-      {/* Settings Content */}
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-        overflow: 'hidden'
-      }}>
-        
-        {/* Card Settings Section */}
-        <div style={{ padding: '24px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            marginBottom: '20px'
-          }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              backgroundColor: '#8b5cf6',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '18px'
-            }}>
-              📚
-            </div>
-            <div>
-              <h3 style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                margin: '0',
-                color: '#111827'
-              }}>
-                Card Settings
-              </h3>
-              <p style={{
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button
+              onClick={backFromSettings}
+              style={{
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: 'none',
                 fontSize: '14px',
-                color: '#6b7280',
-                margin: '4px 0 0 0'
-              }}>
-                Customize your flashcard study experience
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              ← Back
+            </button>
+            
+            <div>
+              <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0', color: '#111827' }}>
+                Settings
+              </h2>
+              <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                Manage your app preferences and profile settings
               </p>
             </div>
           </div>
-  
-          {/* Audio Autoplay Setting */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '16px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '8px',
-            border: '1px solid #f3f4f6'
-          }}>
-            <div>
-              <div style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '4px'
-              }}>
-                🔊 Auto-play Quran Audio
-              </div>
-              <div style={{
-                fontSize: '14px',
-                color: '#6b7280'
-              }}>
-                Automatically play verse audio when studying Quran cards
-              </div>
-            </div>
-            
-            <label style={{
-              position: 'relative',
-              display: 'inline-block',
-              width: '50px',
-              height: '24px',
-              cursor: 'pointer'
-            }}>
-              <input
-                type="checkbox"
-                checked={userSettings.card_autoplay_audio}
-                onChange={(e) => {
-                  const newSettings = {
-                    ...userSettings,
-                    card_autoplay_audio: e.target.checked
-                  };
-                  setUserSettings(newSettings);
-                  saveUserSettings(newSettings);
-                }}
-                style={{ display: 'none' }}
-              />
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: userSettings.card_autoplay_audio ? '#8b5cf6' : '#d1d5db',
-                borderRadius: '24px',
-                transition: 'background-color 0.2s ease'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '2px',
-                  left: userSettings.card_autoplay_audio ? '28px' : '2px',
-                  width: '20px',
-                  height: '20px',
-                  backgroundColor: 'white',
-                  borderRadius: '50%',
-                  transition: 'left 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                }} />
-              </div>
-            </label>
-          </div>
-          {/* Video Background Play Setting */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '16px',
-            backgroundColor: '#f9fafb',
-            borderRadius: '8px',
-            border: '1px solid #f3f4f6',
-            marginTop: '16px'
-          }}>
-            <div>
-              <div style={{
-                fontSize: '16px',
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '4px'
-              }}>
-                🎵 Keep Videos Playing in Background
-              </div>
-              <div style={{
-                fontSize: '14px',
-                color: '#6b7280'
-              }}>
-                Videos continue playing when you switch to other tabs
-              </div>
-            </div>
-            
-            <label style={{
-              position: 'relative',
-              display: 'inline-block',
-              width: '50px',
-              height: '24px',
-              cursor: 'pointer'
-            }}>
-              <input
-                type="checkbox"
-                checked={userSettings.video_keep_playing_background}
-                onChange={(e) => {
-                  const newSettings = {
-                    ...userSettings,
-                    video_keep_playing_background: e.target.checked
-                  };
-                  setUserSettings(newSettings);
-                  saveUserSettings(newSettings);
-                }}
-                style={{ display: 'none' }}
-              />
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: userSettings.video_keep_playing_background ? '#8b5cf6' : '#d1d5db',
-                borderRadius: '24px',
-                transition: 'background-color 0.2s ease'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '2px',
-                  left: userSettings.video_keep_playing_background ? '28px' : '2px',
-                  width: '20px',
-                  height: '20px',
-                  backgroundColor: 'white',
-                  borderRadius: '50%',
-                  transition: 'left 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                }} />
-              </div>
-            </label>
-          </div>
-  
-          {/* Future settings placeholders */}
-          <div style={{
-            marginTop: '16px',
-            padding: '16px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-            border: '2px dashed #e9ecef',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              fontSize: '14px',
-              color: '#6b7280',
-              fontStyle: 'italic'
-            }}>
-              More card settings coming soon...
-              <br />
-              • Study session length • Card difficulty • Review reminders
-            </div>
-          </div>
         </div>
-  
-        {/* Future sections preview */}
-        <div style={{
-          borderTop: '1px solid #f3f4f6',
-          padding: '20px 24px',
-          backgroundColor: '#fafafa'
-        }}>
+    
+        {/* Settings message */}
+        {cardMessage && (
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '16px'
+            marginBottom: '16px',
+            padding: '12px',
+            backgroundColor: cardMessage.includes('✅') ? '#f0fdf4' : '#fef2f2',
+            color: cardMessage.includes('✅') ? '#059669' : '#dc2626',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '500'
           }}>
-            {[
-              { icon: '🎵', title: 'Audio Settings', desc: 'Voice, speed, quality' },
-              { icon: '📱', title: 'App Preferences', desc: 'Theme, notifications' },
-              { icon: '📊', title: 'Study Analytics', desc: 'Progress tracking' }
-            ].map((section, index) => (
-              <div key={index} style={{
-                padding: '16px',
-                backgroundColor: 'white',
-                borderRadius: '8px',
-                border: '1px solid #e5e7eb',
-                opacity: '0.6',
-                textAlign: 'center'
+            {cardMessage}
+          </div>
+        )}
+    
+        {/* Profile Settings Section - ENHANCED */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          marginBottom: '16px',
+          overflow: 'hidden'
+        }}>
+          <div style={{ padding: '24px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '20px'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#8b5cf6',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px'
               }}>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>
-                  {section.icon}
-                </div>
-                <div style={{
+                👤
+              </div>
+              <div>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  margin: '0',
+                  color: '#374151'
+                }}>
+                  Profile Settings
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  margin: '4px 0 0 0'
+                }}>
+                  Customize how others see you in the community
+                </p>
+              </div>
+            </div>
+    
+            <div style={{ display: 'grid', gap: '20px' }}>
+              
+              {/* Avatar Upload Section */}
+              <div>
+                <label style={{
+                  display: 'block',
                   fontSize: '14px',
                   fontWeight: '600',
                   color: '#374151',
-                  marginBottom: '4px'
+                  marginBottom: '8px'
                 }}>
-                  {section.title}
-                </div>
-                <div style={{
-                  fontSize: '12px',
-                  color: '#6b7280'
-                }}>
-                  {section.desc}
-                </div>
-                <div style={{
-                  fontSize: '10px',
-                  color: '#9ca3af',
-                  marginTop: '8px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>
-                  Coming Soon
+                  Profile Picture
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '32px',
+                    overflow: 'hidden',
+                    border: '3px solid #e5e7eb'
+                  }}>
+                    {selectedAvatar ? (
+                      <img 
+                        src={URL.createObjectURL(selectedAvatar)} 
+                        alt="Preview" 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : userProfile.avatar_url ? (
+                      <img 
+                        src={userProfile.avatar_url} 
+                        alt="Current avatar" 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    ) : '👤'}
+                  </div>
+                  <div>
+                    <label style={{
+                      backgroundColor: '#8b5cf6',
+                      color: 'white',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'inline-block'
+                    }}>
+                      Choose Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarSelect}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                    <p style={{
+                      fontSize: '12px',
+                      color: '#6b7280',
+                      marginTop: '4px',
+                      margin: '4px 0 0 0'
+                    }}>
+                      JPG, PNG or GIF. Max 10MB.
+                    </p>
+                    {selectedAvatar && (
+                      <p style={{
+                        fontSize: '12px',
+                        color: '#059669',
+                        marginTop: '4px',
+                        margin: '4px 0 0 0'
+                      }}>
+                        📎 {selectedAvatar.name} selected
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+    
+              {/* Display Name */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>
+                  Display Name *
+                </label>
+                <input
+                  type="text"
+                  value={userProfile.display_name}
+                  onChange={(e) => setUserProfile(prev => ({ ...prev, display_name: e.target.value }))}
+                  placeholder="How others will see your name"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                  maxLength={50}
+                />
+                <p style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  This is how your name appears in community posts. Must be unique.
+                </p>
+              </div>
+    
+              {/* Username */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={userProfile.username}
+                  onChange={(e) => setUserProfile(prev => ({ ...prev, username: e.target.value }))}
+                  placeholder="@username (optional)"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                  maxLength={30}
+                />
+                <p style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  Optional unique identifier
+                </p>
+              </div>
+    
+              {/* Arabic Name */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>
+                  Arabic Name (الاسم العربي)
+                </label>
+                <input
+                  type="text"
+                  value={userProfile.arabic_name}
+                  onChange={(e) => setUserProfile(prev => ({ ...prev, arabic_name: e.target.value }))}
+                  placeholder="اسمك بالعربية"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    direction: 'rtl',
+                    textAlign: 'right'
+                  }}
+                  maxLength={50}
+                />
+                <p style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  Your name in Arabic (optional)
+                </p>
+              </div>
+    
+              {/* Bio */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>
+                  Bio
+                </label>
+                <textarea
+                  value={userProfile.bio}
+                  onChange={(e) => setUserProfile(prev => ({ ...prev, bio: e.target.value }))}
+                  placeholder="Tell others about your Arabic learning journey..."
+                  style={{
+                    width: '100%',
+                    minHeight: '80px',
+                    padding: '12px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    resize: 'vertical'
+                  }}
+                  maxLength={200}
+                />
+                <p style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  {userProfile.bio.length}/200 characters
+                </p>
+              </div>
+    
+              {/* Current Email (read-only) */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={user?.email || ''}
+                  disabled
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #f3f4f6',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    backgroundColor: '#f9fafb',
+                    color: '#6b7280'
+                  }}
+                />
+                <p style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  marginTop: '4px'
+                }}>
+                  Your account email cannot be changed
+                </p>
+              </div>
+    
+              {/* Update Button */}
+              <div style={{ paddingTop: '8px' }}>
+                <button
+                  onClick={handleUpdateProfile}
+                  disabled={isUpdatingProfile || !userProfile.display_name.trim()}
+                  style={{
+                    backgroundColor: isUpdatingProfile || !userProfile.display_name.trim() ? '#9ca3af' : '#8b5cf6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '14px 24px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: isUpdatingProfile || !userProfile.display_name.trim() ? 'not-allowed' : 'pointer',
+                    width: '100%'
+                  }}
+                >
+                  {isUpdatingProfile ? 'Updating Profile...' : 'Update Profile'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+    
+        {/* Study Settings Section - EXISTING */}
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+          overflow: 'hidden'
+        }}>
+          
+          {/* Card Settings Section */}
+          <div style={{ padding: '24px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '20px'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                backgroundColor: '#8b5cf6',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px'
+              }}>
+                📚
+              </div>
+              <div>
+                <h3 style={{
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  margin: '0',
+                  color: '#374151'
+                }}>
+                  Study Settings
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#6b7280',
+                  margin: '4px 0 0 0'
+                }}>
+                  Configure your learning experience
+                </p>
+              </div>
+            </div>
+    
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {/* Card Autoplay Setting */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e9ecef'
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '4px'
+                  }}>
+                    Card Audio Autoplay
+                  </div>
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#6b7280'
+                  }}>
+                    Automatically play pronunciation when reviewing cards
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    const newValue = !userSettings.card_autoplay_audio;
+                    const updated = { ...userSettings, card_autoplay_audio: newValue };
+                    setUserSettings(updated);
+                    
+                    try {
+                      await updateUserSettings(user.id, { card_autoplay_audio: newValue });
+                      setCardMessage('✅ Settings updated successfully!');
+                    } catch (error) {
+                      setCardMessage('❌ Failed to update settings');
+                      setUserSettings(userSettings); // Revert on error
+                    }
+                    setTimeout(() => setCardMessage(''), 3000);
+                  }}
+                  style={{
+                    width: '50px',
+                    height: '28px',
+                    backgroundColor: userSettings.card_autoplay_audio ? '#10b981' : '#d1d5db',
+                    borderRadius: '14px',
+                    border: 'none',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    position: 'absolute',
+                    top: '4px',
+                    left: userSettings.card_autoplay_audio ? '26px' : '4px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+                  }} />
+                </button>
+              </div>
+    
+              {/* Video Background Play Setting */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e9ecef'
+              }}>
+                <div>
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '4px'
+                  }}>
+                    Background Video Play
+                  </div>
+                  <div style={{
+                    fontSize: '14px',
+                    color: '#6b7280'
+                  }}>
+                    Continue playing videos when switching tabs
+                  </div>
+                </div>
+                <button
+                  onClick={async () => {
+                    const newValue = !userSettings.video_keep_playing_background;
+                    const updated = { ...userSettings, video_keep_playing_background: newValue };
+                    setUserSettings(updated);
+                    
+                    try {
+                      await updateUserSettings(user.id, { video_keep_playing_background: newValue });
+                      setCardMessage('✅ Settings updated successfully!');
+                    } catch (error) {
+                      setCardMessage('❌ Failed to update settings');
+                      setUserSettings(userSettings); // Revert on error
+                    }
+                    setTimeout(() => setCardMessage(''), 3000);
+                  }}
+                  style={{
+                    width: '50px',
+                    height: '28px',
+                    backgroundColor: userSettings.video_keep_playing_background ? '#10b981' : '#d1d5db',
+                    borderRadius: '14px',
+                    border: 'none',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    backgroundColor: 'white',
+                    borderRadius: '50%',
+                    position: 'absolute',
+                    top: '4px',
+                    left: userSettings.video_keep_playing_background ? '26px' : '4px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)'
+                  }} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
  // Process transcript into words
   const processTranscriptWords = (transcript: any[]) => {
     const words: any[] = [];
@@ -2850,6 +3185,18 @@ function MainApp({ user }: { user: any }) {
         setTimeout(() => setCardMessage(''), 3000);
     }
     };
+  const loadCompleteUserData = async () => {
+    try {
+      const { data, error } = await loadUserStatsAndProfile(user.id);
+      if (!error && data) {
+        setUserProfileData(data);
+        // Also update the existing userStats for backward compatibility
+        setUserStats(data.stats);
+      }
+    } catch (error) {
+      console.error('Error loading complete user data:', error);
+    }
+  };
 
   // Load user decks
   const loadUserDecks = async () => {
@@ -2870,6 +3217,13 @@ function MainApp({ user }: { user: any }) {
     }
   }, [activeTab, user]);
   useEffect(() => {
+    if (user?.id) {
+      loadUserProfileForSettings();
+    }
+  }, [user?.id]);
+
+  
+  useEffect(() => {
     console.log('🔍 Checking initialization conditions:', {
       currentVideoId: currentVideoId,
       windowYT: !!window.YT
@@ -2880,6 +3234,11 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => initializePlayer(), 500);
     }
   }, [currentVideoId]);
+  useEffect(() => {
+    if (showProfileModal && user?.id) {
+      loadCompleteUserData();
+    }
+  }, [showProfileModal, user?.id]);
   
   useEffect(() => {
     if (user?.id) {
@@ -3198,6 +3557,75 @@ function MainApp({ user }: { user: any }) {
       setVideoTimestampInterval(interval);
     } catch (error) {
       console.error('Error in onPlayerReady:', error);
+    }
+  };
+  const loadUserProfileForSettings = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data, error } = await getUserProfile(user.id);
+      if (!error && data) {
+        setUserProfile(data);
+      } else {
+        // Set default values if no profile exists
+        const emailUsername = user.email?.split('@')[0] || 'User';
+        setUserProfile({
+          display_name: emailUsername,
+          username: '',
+          arabic_name: 'مستخدم',
+          bio: '',
+          avatar_url: ''
+        });
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
+  };
+  // Function to handle avatar selection
+  const handleAvatarSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit for avatars
+        setCardMessage('❌ Avatar file too large (max 10MB)');
+        setTimeout(() => setCardMessage(''), 3000);
+        return;
+      }
+      setSelectedAvatar(file);
+    }
+  };
+  const handleUpdateProfile = async () => {
+    if (!user?.id) return;
+    
+    setIsUpdatingProfile(true);
+    try {
+      const { data, error } = await updateUserProfileComplete(
+        user.id, 
+        {
+          display_name: userProfile.display_name.trim(),
+          username: userProfile.username.trim(),
+          arabic_name: userProfile.arabic_name.trim(),
+          bio: userProfile.bio.trim(),
+          avatar_url: userProfile.avatar_url
+        },
+        selectedAvatar
+      );
+      
+      if (!error) {
+        setCardMessage('✅ Profile updated successfully!');
+        setSelectedAvatar(null); // Clear selected avatar
+        // Update the profile state with new data
+        if (data) {
+          setUserProfile(data);
+        }
+      } else {
+        setCardMessage('❌ ' + (error.message || 'Failed to update profile'));
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setCardMessage('❌ Error updating profile');
+    } finally {
+      setIsUpdatingProfile(false);
+      setTimeout(() => setCardMessage(''), 3000);
     }
   };
 
