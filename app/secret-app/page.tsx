@@ -42,6 +42,12 @@ import {
   updateDailyImmersionStats,
   saveImmersionSession,
   loadUserImmersionStats,
+  getCommunityPostsWithUsers,
+  createCommunityPostWithMedia,
+  interactWithPostPersistent,
+  getUserPostInteractions,
+  updateUserDisplayName,
+  getUserProfile
 } from '@/lib/database'
 import { 
   fetchSurahsList, 
@@ -479,6 +485,13 @@ function MainApp({ user }: { user: any }) {
     isPlayingContinuous: false
   });
   //user setting states
+  const [userProfile, setUserProfile] = useState({
+    display_name: '',
+    username: '',
+    arabic_name: '',
+    bio: ''
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [userSettings, setUserSettings] = useState({
     card_autoplay_audio: true,
     current_video_url: null,
@@ -562,23 +575,31 @@ function MainApp({ user }: { user: any }) {
   const [isPosting, setIsPosting] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [userInteractions, setUserInteractions] = useState({});
+  const [expandedImages, setExpandedImages] = useState(new Set());
+
   
   const loadCommunityPosts = async () => {
     setIsLoadingPosts(true);
     try {
-        // Test connection first
-        await testCommunityConnection();
-        
-        const { data, error } = await getCommunityPosts(20, 0);
-        if (!error && data) {
+      // Use the new function that includes user data
+      const { data, error } = await getCommunityPostsWithUsers(20, 0);
+      if (!error && data) {
         setCommunityPosts(data);
-        } else {
-        console.error('Error loading posts:', error);
+        
+        // Load user interactions for these posts
+        if (user?.id && data.length > 0) {
+          const postIds = data.map(post => post.id);
+          const { data: interactions } = await getUserPostInteractions(user.id, postIds);
+          setUserInteractions(interactions || {});
         }
-    } catch (error) {
+      } else {
         console.error('Error loading posts:', error);
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error);
     } finally {
-        setIsLoadingPosts(false);
+      setIsLoadingPosts(false);
     }
   };
   const loadUserSettings = async () => {
@@ -4652,66 +4673,107 @@ function MainApp({ user }: { user: any }) {
   };
   const renderCommunityTab = () => {
     const handleCreatePost = async () => {
-        if (!newPost.trim() || !user?.id) return;
-        
-        setIsPosting(true);
-        try {
-            // Create user profile if it doesn't exist
-            await createOrUpdateUserProfile(user.id, {
-            display_name: user.email?.split('@')[0] || 'User',
-            arabic_name: 'مستخدم'
-            });
-
-            // Create post
-            const { data, error } = await createCommunityPost(
-            user.id,
-            newPost,
-            newPostTranslation,
-            'text',
-            null,
-            'daily_study'
-            );
-
-            if (!error && data) {
-            setCommunityPosts(prev => [data, ...prev]);
-            setNewPost('');
-            setNewPostTranslation('');
-            setSelectedMedia(null);
-            setCardMessage('✅ Post shared successfully!');
-            } else {
-            setCardMessage('❌ Failed to share post');
-            }
-        } catch (createError) {
-            console.error('Error creating post:', createError);
-            setCardMessage('❌ Error sharing post');
-        } finally {
-            setIsPosting(false);
-            setTimeout(() => setCardMessage(''), 3000);
+      if (!newPost.trim() || !user?.id) return;
+      
+      setIsPosting(true);
+      try {
+        // Ensure user profile exists with default display name
+        const emailUsername = user.email?.split('@')[0] || 'User';
+        await createOrUpdateUserProfile(user.id, {
+          display_name: emailUsername,
+          arabic_name: 'مستخدم'
+        });
+    
+        // Create post with media (if selected)
+        const { data, error } = await createCommunityPostWithMedia(
+          user.id,
+          newPost,
+          newPostTranslation,
+          selectedMedia ? 'pending' : 'text', // Will be updated by upload
+          selectedMedia,
+          'daily_study'
+        );
+    
+        if (!error && data) {
+          // Add the new post to the top of the list
+          setCommunityPosts(prev => [data, ...prev]);
+          
+          // Clear form
+          setNewPost('');
+          setNewPostTranslation('');
+          setSelectedMedia(null);
+          setCardMessage('✅ Post shared successfully!');
+          
+          // Update user interactions state for the new post
+          setUserInteractions(prev => ({
+            ...prev,
+            [data.id]: [] // No interactions yet for new post
+          }));
+        } else {
+          setCardMessage('❌ Failed to share post: ' + (error?.message || 'Unknown error'));
         }
+      } catch (createError) {
+        console.error('Error creating post:', createError);
+        setCardMessage('❌ Error sharing post: ' + createError.message);
+      } finally {
+        setIsPosting(false);
+        setTimeout(() => setCardMessage(''), 3000);
+      }
     };
 
-    const handleInteraction = async (postId, interactionType) => {
-        try {
-            const { data, error } = await interactWithPost(postId, user.id, interactionType);
-            if (!error) {
-            setCommunityPosts(prev => prev.map(post => {
-                if (post.id === postId) {
-                const countField = `${interactionType}s_count`;
-                return {
-                    ...post,
-                    [countField]: data.action === 'added' 
-                    ? post[countField] + 1 
-                    : Math.max(0, post[countField] - 1)
-                };
-                }
-                return post;
-            }));
-            }
-        } catch (error) {
-            console.error('Error interacting with post:', error);
-        }
-        };
 
+    const handleInteraction = async (postId, interactionType) => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await interactWithPostPersistent(postId, user.id, interactionType);
+        if (!error && data) {
+          // Update the post's count in the UI
+          setCommunityPosts(prev => prev.map(post => {
+            if (post.id === postId) {
+              const countField = `${interactionType}s_count`;
+              return {
+                ...post,
+                [countField]: data.newCount
+              };
+            }
+            return post;
+          }));
+    
+          // Update user interactions state
+          setUserInteractions(prev => {
+            const postInteractions = prev[postId] || [];
+            if (data.action === 'added') {
+              return {
+                ...prev,
+                [postId]: [...postInteractions, interactionType]
+              };
+            } else {
+              return {
+                ...prev,
+                [postId]: postInteractions.filter(type => type !== interactionType)
+              };
+            }
+          });
+        } else {
+          console.error('Error interacting with post:', error);
+        }
+      } catch (error) {
+        console.error('Error interacting with post:', error);
+      }
+    };
+    // Helper function to toggle image expansion
+    const toggleImageExpansion = (postId) => {
+      setExpandedImages(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(postId)) {
+          newSet.delete(postId);
+        } else {
+          newSet.add(postId);
+        }
+        return newSet;
+      });
+    };
     const handleMediaSelect = (event) => {
         const file = event.target.files[0];
         if (file) {
@@ -4908,159 +4970,190 @@ function MainApp({ user }: { user: any }) {
         ) : (
             <div style={{ display: 'grid', gap: '16px' }}>
             {communityPosts.map((post, index) => (
-                <div key={post.id || index} style={{
+              <div key={post.id || index} style={{
                 backgroundColor: 'white',
                 borderRadius: '12px',
                 padding: '20px',
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                 border: '1px solid #f3f4f6'
-                }}>
+              }}>
                 {/* Post Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ fontSize: '32px' }}>👤</div>
-                    <div>
-                        <div style={{ fontSize: '16px', fontWeight: '600', color: '#374151' }}>
-                          Anonymous User
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {new Date(communityPosts.created_at).toLocaleString()}
-                        </div>
-                    </div>
-                    </div>
-                    {post.study_proof_type && (
-                    <div style={{
-                        backgroundColor: '#f0fdf4',
-                        color: '#059669',
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '10px',
-                        fontWeight: '600'
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ 
+                      fontSize: '32px',
+                      width: '40px',
+                      height: '40px',
+                      backgroundColor: '#8b5cf6',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white'
                     }}>
-                        📚 {post.study_proof_type}
+                      {post.user_avatar ? (
+                        <img 
+                          src={post.user_avatar} 
+                          alt="Avatar" 
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                        />
+                      ) : '👤'}
                     </div>
-                    )}
+                    <div>
+                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#374151' }}>
+                        {post.user_display_name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {new Date(post.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  {post.study_proof_type && (
+                    <div style={{
+                      backgroundColor: '#f0fdf4',
+                      color: '#059669',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      fontSize: '10px',
+                      fontWeight: '600'
+                    }}>
+                      📚 {post.study_proof_type}
+                    </div>
+                  )}
                 </div>
-
+            
                 {/* Arabic Post Content */}
                 <div style={{
-                    fontSize: '18px',
-                    lineHeight: '1.8',
-                    direction: 'rtl',
-                    fontFamily: 'Arial, sans-serif',
-                    color: '#374151',
-                    marginBottom: '12px',
-                    padding: '16px',
-                    backgroundColor: '#f9fafb',
-                    borderRadius: '8px',
-                    borderRight: '4px solid #8b5cf6'
+                  fontSize: '18px',
+                  lineHeight: '1.8',
+                  direction: 'rtl',
+                  textAlign: 'right',
+                  color: '#1f2937',
+                  marginBottom: '12px',
+                  fontFamily: 'serif'
                 }}>
-                    {post.content}
+                  {post.content}
                 </div>
-
+            
                 {/* English Translation */}
                 {post.content_translation && (
-                    <div style={{
+                  <div style={{
                     fontSize: '14px',
                     color: '#6b7280',
-                    fontStyle: 'italic',
                     marginBottom: '16px',
-                    padding: '8px 12px',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '6px'
-                    }}>
-                    Translation: {post.content_translation}
-                    </div>
+                    fontStyle: 'italic'
+                  }}>
+                    {post.content_translation}
+                  </div>
                 )}
-
-                {/* Media */}
+            
+                {/* Media Content */}
                 {post.media_url && (
-                    <div style={{
-                    marginBottom: '16px',
-                    borderRadius: '8px',
-                    overflow: 'hidden'
-                    }}>
+                  <div style={{ marginBottom: '16px' }}>
                     {post.post_type === 'image' && (
-                        <img
-                        src={post.media_url}
-                        alt="Study photo"
-                        style={{
-                            width: '100%',
-                            maxHeight: '400px',
-                            objectFit: 'cover'
-                        }}
+                      <div>
+                        <img 
+                          src={post.media_url}
+                          alt="Post media"
+                          style={{
+                            width: expandedImages.has(post.id) ? '100%' : '200px',
+                            height: expandedImages.has(post.id) ? 'auto' : '150px',
+                            objectFit: expandedImages.has(post.id) ? 'contain' : 'cover',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease'
+                          }}
+                          onClick={() => toggleImageExpansion(post.id)}
                         />
+                        <div style={{ 
+                          fontSize: '12px', 
+                          color: '#6b7280', 
+                          marginTop: '4px',
+                          textAlign: 'center'
+                        }}>
+                          {expandedImages.has(post.id) ? 'Click to minimize' : 'Click to expand'}
+                        </div>
+                      </div>
                     )}
                     {post.post_type === 'video' && (
-                        <video
+                      <video 
+                        src={post.media_url}
                         controls
                         style={{
-                            width: '100%',
-                            maxHeight: '400px'
+                          width: '100%',
+                          maxHeight: '300px',
+                          borderRadius: '8px'
                         }}
-                        >
-                        <source src={post.media_url} />
-                        </video>
+                      />
                     )}
                     {post.post_type === 'audio' && (
-                        <audio
+                      <audio 
+                        src={post.media_url}
                         controls
                         style={{ width: '100%' }}
-                        >
-                        <source src={communityPosts.media_url} />
-                        </audio>
+                      />
                     )}
-                    </div>
+                  </div>
                 )}
+            
+                {/* Interaction Buttons */}
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '16px', 
+                  paddingTop: '12px', 
+                  borderTop: '1px solid #f3f4f6' 
+                }}>
+                  <button
+                    onClick={() => handleInteraction(post.id, 'like')}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: userInteractions[post.id]?.includes('like') ? '#dc2626' : '#6b7280',
+                      fontWeight: userInteractions[post.id]?.includes('like') ? '600' : '400',
+                      padding: '4px 8px',
+                      borderRadius: '6px'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#fef2f2'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{ fontSize: '16px' }}>
+                      {userInteractions[post.id]?.includes('like') ? '❤️' : '🤍'}
+                    </span>
+                    {post.likes_count || 0}
+                  </button>
+            
+                  <button
+                    onClick={() => handleInteraction(post.id, 'encouragement')}
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: userInteractions[post.id]?.includes('encouragement') ? '#059669' : '#6b7280',
+                      fontWeight: userInteractions[post.id]?.includes('encouragement') ? '600' : '400',
+                      padding: '4px 8px',
+                      borderRadius: '6px'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f0fdf4'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{ fontSize: '16px' }}>
+                      {userInteractions[post.id]?.includes('encouragement') ? '💪' : '👏'}
+                    </span>
+                    {post.encouragements_count || 0}
+                  </button>
+                </div>
+              </div>
+            )}
 
-                {/* Post Actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                    <button
-                        onClick={() => handleInteraction(post.id, 'like')}
-                        style={{
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        color: '#6b7280',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                        }}
-                    >
-                        ❤️ {post.likes_count || 0}
-                    </button>
-                    <button
-                        onClick={() => handleInteraction(post.id, 'encourage')}
-                        style={{
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        color: '#6b7280',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                        }}
-                    >
-                        🤲 {post.encouragements_count || 0}
-                    </button>
-                    </div>
-                    {post.is_verified && (
-                    <div style={{
-                        fontSize: '12px',
-                        color: '#059669',
-                        fontWeight: '600'
-                    }}>
-                        ✅ Verified Study
-                    </div>
-                    )}
-                </div>
-                </div>
-            ))}
-            </div>
-        )}
 
         {/* Guidelines */}
         <div style={{
