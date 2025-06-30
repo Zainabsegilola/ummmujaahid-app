@@ -5580,7 +5580,7 @@ function MainApp({ user }: { user: any }) {
                   </button>
                 </div>
               </div>
-            )}
+            ))}
 
 
         {/* Guidelines */}
@@ -5601,9 +5601,9 @@ function MainApp({ user }: { user: any }) {
             <li>Keep posts focused on Islamic learning and Arabic study</li>
             </ul>
         </div>
-        </div>
+      </div>
     );
-    };
+  };
   const renderLeaderboardTab = () => (
     <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
