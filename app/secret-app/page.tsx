@@ -1935,7 +1935,7 @@ function MainApp({ user }: { user: any }) {
                   color: '#6b7280',
                   marginTop: '4px'
                 }}>
-                  {userProfile.bio.length}/200 characters
+                  {(userProfile.bio || '').length}/200 characters
                 </p>
               </div>
     
