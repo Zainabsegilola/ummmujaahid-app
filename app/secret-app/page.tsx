@@ -3610,36 +3610,46 @@ function MainApp({ user }: { user: any }) {
     
     setIsUpdatingProfile(true);
     try {
+      // Ensure all fields are strings
+      const profileData = {
+        display_name: (userProfile.display_name || '').trim(),
+        username: (userProfile.username || '').trim(),
+        arabic_name: (userProfile.arabic_name || '').trim(),
+        bio: (userProfile.bio || '').trim(),
+        avatar_url: userProfile.avatar_url || ''
+      };
+  
+      console.log('🔍 Updating profile with:', profileData);
+  
       const { data, error } = await updateUserProfileComplete(
         user.id, 
-        {
-          display_name: userProfile.display_name.trim(),
-          username: userProfile.username.trim(),
-          arabic_name: userProfile.arabic_name.trim(),
-          bio: userProfile.bio.trim(),
-          avatar_url: userProfile.avatar_url
-        },
+        profileData,
         selectedAvatar
       );
       
       if (!error) {
         setCardMessage('✅ Profile updated successfully!');
-        setSelectedAvatar(null); // Clear selected avatar
+        setSelectedAvatar(null);
         // Update the profile state with new data
         if (data) {
-          setUserProfile(data);
+          setUserProfile({
+            ...data,
+            bio: data.bio || '' // Ensure bio is always a string
+          });
         }
       } else {
+        console.error('Profile update error:', error);
         setCardMessage('❌ ' + (error.message || 'Failed to update profile'));
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      setCardMessage('❌ Error updating profile');
+      setCardMessage('❌ Error updating profile: ' + error.message);
     } finally {
       setIsUpdatingProfile(false);
       setTimeout(() => setCardMessage(''), 3000);
     }
   };
+
 
   const onPlayerStateChange = (event: any) => {
     try {
