@@ -5602,6 +5602,7 @@ function MainApp({ user }: { user: any }) {
             </ul>
         </div>
         )}
+        </div>  
       </div>
     );
   };
