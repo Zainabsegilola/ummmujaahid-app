@@ -588,19 +588,19 @@ function MainApp({ user }: { user: any }) {
 
   
   const loadCommunityPosts = async () => {
-    setIsLoadingPosts(true);
+     setIsLoadingPosts(true);
     try {
-      // Use the new function that includes user data
+      console.log('🔍 Debug: Starting to load posts...');
+      console.log('🔍 Debug: Available functions:', { 
+        getCommunityPostsWithUsers: typeof getCommunityPostsWithUsers,
+        testCommunityConnection: typeof testCommunityConnection 
+      });
+      
       const { data, error } = await getCommunityPostsWithUsers(20, 0);
+      console.log('🔍 Debug: Posts result:', { data, error });
+      
       if (!error && data) {
         setCommunityPosts(data);
-        
-        // Load user interactions for these posts
-        if (user?.id && data.length > 0) {
-          const postIds = data.map(post => post.id);
-          const { data: interactions } = await getUserPostInteractions(user.id, postIds);
-          setUserInteractions(interactions || {});
-        }
       } else {
         console.error('Error loading posts:', error);
       }
