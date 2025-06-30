@@ -12,8 +12,7 @@ import {
   reviewCard,getUserQuranSettings, 
   updateQuranSettings, 
   updateSurahProgress,
-  createSurahDeck,
-  createCommunityPost,   
+  createSurahDeck, 
   createOrUpdateUserProfile,
   getCardsInDeck,
   deleteCard, 
@@ -48,8 +47,6 @@ import {
   updateUserProfileComplete,
   calculateImmersionStreak,
   calculateCardStudyStreak,
-  getCommunityPosts,
-  interactWithPost,
   testCommunityConnection,
   getUserProfile
 } from '@/lib/database'
@@ -5112,7 +5109,7 @@ function MainApp({ user }: { user: any }) {
           });
     
           // Create post
-          const { data, error } = await createCommunityPost(
+          const { data, error } = await createCommunityPostWithMedia(
             user.id,
             newPost,
             newPostTranslation,
@@ -5141,7 +5138,7 @@ function MainApp({ user }: { user: any }) {
     
       const handleInteraction = async (postId, interactionType) => {
         try {
-          const { data, error } = await interactWithPost(postId, user.id, interactionType);
+          const { data, error } = await interactWithPostPersistent(postId, user.id, interactionType);
           if (!error) {
             setCommunityPosts(prev => prev.map(post => {
               if (post.id === postId) {
