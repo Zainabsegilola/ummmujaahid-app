@@ -3562,7 +3562,13 @@ function MainApp({ user }: { user: any }) {
     try {
       const { data, error } = await getUserProfile(user.id);
       if (!error && data) {
-        setUserProfile(data);
+        setUserProfile({
+          display_name: data.display_name || user.email?.split('@')[0] || 'User',
+          username: data.username || '',
+          arabic_name: data.arabic_name || 'مستخدم',
+          bio: data.bio || '', // Ensure bio is always a string
+          avatar_url: data.avatar_url || ''
+        });
       } else {
         // Set default values if no profile exists
         const emailUsername = user.email?.split('@')[0] || 'User';
@@ -3570,14 +3576,23 @@ function MainApp({ user }: { user: any }) {
           display_name: emailUsername,
           username: '',
           arabic_name: 'مستخدم',
-          bio: '',
+          bio: '', // Always initialize as empty string
           avatar_url: ''
         });
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+      // Set safe defaults on error
+      setUserProfile({
+        display_name: user.email?.split('@')[0] || 'User',
+        username: '',
+        arabic_name: 'مستخدم',
+        bio: '', // Safe default
+        avatar_url: ''
+      });
     }
   };
+
   // Function to handle avatar selection
   const handleAvatarSelect = (event) => {
     const file = event.target.files[0];
