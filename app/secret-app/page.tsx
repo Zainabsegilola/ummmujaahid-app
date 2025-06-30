@@ -991,31 +991,48 @@ function MainApp({ user }: { user: any }) {
       // Determine focused vs freeflow time
       const focusedTime = currentSessionType === 'focused' ? timeToSave : 0;
       const freeflowTime = currentSessionType === 'freeflow' ? timeToSave : 0;
-      
-      // Update user's total immersion time
-      const { data: currentSettings } = await getUserSettings(user.id);
-      const newTotalImmersion = (currentSettings?.total_immersion_seconds || 0) + timeToSave;
-      
-      await updateUserSettings(user.id, {
-        total_immersion_seconds: newTotalImmersion,
-        current_session_start: sessionStartTime.toISOString(),
-        last_immersion_save: new Date().toISOString()
-      });
-      
-      // Update daily stats
-      await updateDailyImmersionStats(user.id, focusedTime, freeflowTime);
-      
-      // Save session details
-      if (isFinalSave) {
-        await saveImmersionSession(user.id, currentVideoId, currentVideoTitle, sessionStartTime, new Date(), focusedTime, freeflowTime);
+        // Update daily stats in database
+        const dailyResult = await updateDailyImmersionStats(user.id, focusedTime, freeflowTime);
+        if (dailyResult.error) {
+          console.error('❌ Failed to update daily stats:', dailyResult.error);
+        }
+        
+        // Update all-time total in user settings
+        const newTotal = (userSettings.total_immersion_seconds || 0) + timeToSave;
+        const settingsResult = await updateUserSettings(user.id, {
+          total_immersion_seconds: newTotal
+        });
+        if (settingsResult.error) {
+          console.error('❌ Failed to update user settings:', settingsResult.error);
+        }
+        
+        // If this is the final save, also save the complete session
+        if (isFinalSave) {
+          const sessionEnd = new Date();
+          const totalFocused = currentSessionType === 'focused' ? immersionTimer : 0;
+          const totalFreeflow = currentSessionType === 'freeflow' ? immersionTimer : 0;
+          
+          const sessionResult = await saveImmersionSession(
+            user.id, 
+            currentVideoId, 
+            currentVideoTitle || 'Unknown Video',
+            sessionStartTime,
+            sessionEnd,
+            totalFocused,
+            totalFreeflow
+          );
+          if (sessionResult.error) {
+            console.error('❌ Failed to save session:', sessionResult.error);
+          }
+        }
+        
+        // Update last save time
+        setLastImmersionSave(totalSeconds);
+        
+      } catch (error) {
+        console.error('❌ Error in saveImmersionProgress:', error);
       }
-      
-      setLastImmersionSave(totalSeconds);
-      
-    } catch (error) {
-      console.error('❌ Error saving immersion progress:', error);
-    }
-  };
+    };
 
 
     
@@ -3213,30 +3230,55 @@ function MainApp({ user }: { user: any }) {
   };
 
   const onPlayerStateChange = (event: any) => {
-    try {
-      const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
-      setIsPlaying(isNowPlaying);
-      
-      // Immersion tracking
-      if (isNowPlaying) {
-        // Start immersion session when video starts playing
-        if (!sessionStartTime) {
-          startImmersionSession();
+      try {
+        const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
+        setIsPlaying(isNowPlaying);
+        
+        // Immersion tracking
+        if (isNowPlaying) {
+          // Start immersion session when video starts playing for the first time
+          if (!sessionStartTime) {
+            startImmersionSession();
+          } else {
+            // Resume the timer if session already exists
+            if (!immersionInterval) {
+              console.log('🔄 Resuming immersion timer');
+              const interval = setInterval(() => {
+                setImmersionTimer(prev => {
+                  const newTime = prev + 1;
+                  
+                  // Save to database every 30 seconds
+                  if (newTime > 0 && newTime % 30 === 0) {
+                    saveImmersionProgress(newTime);
+                  }
+                  
+                  // Show "still watching?" after 90 minutes (5400 seconds)
+                  if (newTime === 5400) {
+                    setShowStillWatchingPrompt(true);
+                  }
+                  
+                  return newTime;
+                });
+              }, 1000);
+              
+              setImmersionInterval(interval);
+            }
+          }
+        } else if (event.data === window.YT.PlayerState.PAUSED) {
+          // Pause the timer but don't stop session
+          if (immersionInterval) {
+            clearInterval(immersionInterval);
+            setImmersionInterval(null);
+            console.log('⏸️ Paused immersion timer');
+          }
+        } else if (event.data === window.YT.PlayerState.ENDED) {
+          // Stop the session when video ends
+          stopImmersionSession();
         }
-      } else if (event.data === window.YT.PlayerState.PAUSED) {
-        // Pause the timer but don't stop session
-        if (immersionInterval) {
-          clearInterval(immersionInterval);
-          setImmersionInterval(null);
-        }
-      } else if (event.data === window.YT.PlayerState.ENDED) {
-        // Stop the session when video ends
-        stopImmersionSession();
+      } catch (error) {
+        console.error('Error in onPlayerStateChange:', error);
       }
-    } catch (error) {
-      console.error('Error in onPlayerStateChange:', error);
-    }
-  };
+    };
 
   // Deck functions
   const handleCreateOrGetDeck = async (videoTitle: string, videoId: string) => {
