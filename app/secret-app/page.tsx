@@ -1406,7 +1406,7 @@ function MainApp({ user }: { user: any }) {
 // RENDER FUNCTIONS
   // STEP 6: Add this Settings page render function
 // Add this function after your other render functions (around line 1500-2000)
-  const renderStillWatchingPrompt = () => {
+ /* const renderStillWatchingPrompt = () => {
     if (!showStillWatchingPrompt) return null;
   
     const handleStillWatching = () => {
@@ -1469,7 +1469,7 @@ function MainApp({ user }: { user: any }) {
             marginBottom: '24px'
           }}>
             <div style={{ fontSize: '14px', color: '#059669', fontWeight: '600' }}>
-              🎯 Immersion Time: {Math.floor(immersionTimer / 60)} minutes
+              🎯 Immersion Time: {Math.floor(immersionSession.totalSeconds / 60)} minutes
             </div>
           </div>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
@@ -1507,12 +1507,12 @@ function MainApp({ user }: { user: any }) {
         </div>
       </div>
     );
-  };
+  };*/
   const renderImmersionStats = () => {
-    if (!sessionStartTime || immersionTimer === 0) return null;
+    if (!immersionSession.startTime || immersionSession.totalSeconds === 0) return null;
     
-    const minutes = Math.floor(immersionTimer / 60);
-    const seconds = immersionTimer % 60;
+    const minutes = Math.floor(immersionSession.totalSeconds / 60);
+    const seconds = immersionSession.totalSeconds % 60;
     
     return (
       <div style={{
@@ -1529,7 +1529,7 @@ function MainApp({ user }: { user: any }) {
         <div style={{ fontSize: '12px', color: '#059669' }}>
           <strong>Immersion:</strong> {minutes}:{seconds.toString().padStart(2, '0')} 
           <span style={{ marginLeft: '8px', opacity: '0.8' }}>
-            ({currentSessionType})
+            ({immersionSession.currentMode})
           </span>
         </div>
       </div>
@@ -1537,10 +1537,10 @@ function MainApp({ user }: { user: any }) {
   };
   const renderImmersionTimerWidget = () => {
     // Only show on watch tab and when session is active
-    if (activeTab !== 'watch' || !sessionStartTime || immersionTimer === 0) return null;
+    if (activeTab !== 'watch' || !immersionSession.startTime || immersionSession.totalSeconds === 0) return null;
     
-    const minutes = Math.floor(immersionTimer / 60);
-    const seconds = immersionTimer % 60;
+    const minutes = Math.floor(immersionSession.totalSeconds / 60);
+    const seconds = immersionSession.totalSeconds % 60;
     const hours = Math.floor(minutes / 60);
     const displayMinutes = minutes % 60;
     
@@ -1570,7 +1570,7 @@ function MainApp({ user }: { user: any }) {
         
         {/* Session Type Icon */}
         <div style={{ fontSize: '18px' }}>
-          {currentSessionType === 'focused' ? '🎯' : '🌊'}
+          {immersionSession.currentMode === 'focused' ? '🎯' : '🌊'}
         </div>
         
         {/* Time Display */}
@@ -1590,7 +1590,7 @@ function MainApp({ user }: { user: any }) {
             letterSpacing: '0.5px',
             fontWeight: '500'
           }}>
-            {currentSessionType === 'focused' ? 'Focused' : 'Freeflow'}
+            {immersionSession.currentMode === 'focused' ? 'Focused' : 'Freeflow'}
           </div>
         </div>
         
@@ -1598,7 +1598,7 @@ function MainApp({ user }: { user: any }) {
         <div style={{
           width: '8px',
           height: '8px',
-          backgroundColor: currentSessionType === 'focused' ? '#10b981' : '#f59e0b',
+          backgroundColor: immersionSession.currentMode === 'focused' ? '#10b981' : '#f59e0b',
           borderRadius: '50%',
           animation: 'pulse 2s infinite'
         }} />
@@ -2969,29 +2969,16 @@ function MainApp({ user }: { user: any }) {
   useEffect(() => {
     // Cleanup immersion session on component unmount or user logout
     return () => {
-      if (sessionStartTime) {
+      if (immersionSession.isActive) {
         stopImmersionSession();
       }
     };
   }, []);
-  useEffect(() => {
-    if (isTabFocused && activeTab === 'watch') {
-      setCurrentSessionType('focused');
-    } else {
-      setCurrentSessionType('freeflow');
-    }
-  }, [activeTab]);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
-      setIsTabFocused(isVisible);
-      
-      // Update session type based on tab focus and current tab
-      if (isVisible && activeTab === 'watch') {
-        setCurrentSessionType('focused');
-      } else {
-        setCurrentSessionType('freeflow');
-      }
+      setisTabVisible(isVisible);
     };
   
     document.addEventListener('visibilitychange', handleVisibilityChange);
