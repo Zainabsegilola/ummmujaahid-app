@@ -5601,6 +5601,7 @@ function MainApp({ user }: { user: any }) {
             <li>Keep posts focused on Islamic learning and Arabic study</li>
             </ul>
         </div>
+        )}
       </div>
     );
   };
