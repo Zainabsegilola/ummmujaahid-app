@@ -7577,10 +7577,6 @@ function MainApp({ user }: { user: any }) {
       </div>
     );
   };
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
   return (
    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'Roboto, sans-serif' }}>
       <div style={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
