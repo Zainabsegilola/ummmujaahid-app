@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { AuthForm } from '@/components/AuthForm';
+import { ProfileDropdown } from '@/components/ProfileDropdown';
 import { supabase } from '@/lib/supabase'
 import { 
   createOrGetDeck, 
@@ -65,144 +66,6 @@ declare global {
     onYouTubeIframeAPIReady: () => void;
   }
 }
-function ProfileDropdown({ user, onLogout, onGoToSettings, onOpenProfile }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
-
-  // Click outside handler
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
-
-  return (
-    <div ref={dropdownRef} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          backgroundColor: '#8b5cf6',
-          border: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          color: 'white',
-          fontSize: '16px',
-          fontWeight: '600'
-        }}
-      >
-        👤
-      </button>
-
-      {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '50px',
-          right: '0',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
-          border: '1px solid #e5e7eb',
-          minWidth: '200px',
-          zIndex: 1000
-        }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151' }}>
-              {user?.email}
-            </div>
-          </div>
-          
-          <button
-            onClick={() => {
-              setIsOpen(false);
-              onOpenProfile(); // Open profile modal
-            }}
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              textAlign: 'left',
-              cursor: 'pointer',
-              fontSize: '14px',
-              color: '#374151',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-          >
-            👤 Profile
-          </button>
-
-          <button
-            onClick={() => {
-              setIsOpen(false);
-              onGoToSettings();
-            }}
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              textAlign: 'left',
-              cursor: 'pointer',
-              fontSize: '14px',
-              color: '#374151',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              borderBottom: '1px solid #f3f4f6'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-          >
-            ⚙️ Settings
-          </button>
-
-          <button
-            onClick={() => {
-              setIsOpen(false);
-              onLogout();
-            }}
-            style={{
-              width: '100%',
-              padding: '12px 16px',
-              border: 'none',
-              backgroundColor: 'transparent',
-              textAlign: 'left',
-              cursor: 'pointer',
-              fontSize: '14px',
-              color: '#dc2626',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#fef2f2'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-          >
-            🚪 Logout
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 // Main App Component
 function MainApp({ user }: { user: any }) {
   const [activeTab, setActiveTab] = useState('watch');
@@ -263,7 +126,22 @@ function MainApp({ user }: { user: any }) {
     context: '',
     notes: ''
   });
+  // PROFILE DROPDOWN HANDLERS
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
+  const handleGoToSettings = () => {
+    console.log('Settings clicked - add your settings logic here');
+  };
+
+  const handleOpenProfile = () => {
+    setShowProfileModal(true);
+  };
   // Harakat states
   const [harakatCache, setHarakatCache] = useState<Map<string, string>>(new Map());
   const [isProcessingHarakat, setIsProcessingHarakat] = useState(false);
@@ -7731,12 +7609,11 @@ function MainApp({ user }: { user: any }) {
                 </div>
             </div>
             <ProfileDropdown 
-                user={user} 
-                onLogout={handleLogout} 
-                onGoToSettings={goToSettings}
-                onOpenProfile={() => setShowProfileModal(true)}
-              />
-          </div>
+              user={user}
+              onLogout={handleLogout}
+              onGoToSettings={handleGoToSettings}
+              onOpenProfile={handleOpenProfile}
+            />
 
           <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginTop: '16px' }}>
             {[
