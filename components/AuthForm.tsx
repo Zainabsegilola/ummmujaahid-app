@@ -52,7 +52,6 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
 
   // WEBPAGE LAYOUT - This describes what the user sees and how it looks
   return (
-    {/* Outer container that fills the screen and centers everything */}
     <div style={{
       minHeight: '100vh', // Make container at least as tall as the user's screen
       display: 'flex', // Use flexible layout system to position content
@@ -60,7 +59,6 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
       justifyContent: 'center', // Center everything horizontally in the container
       backgroundColor: '#f9fafb' // Paint the background light gray color
     }}>
-      {/* White form box that contains the login form */}
       <div style={{
         backgroundColor: 'white', // Paint this box white so it stands out from gray background
         padding: '32px', // Add 32 pixels of empty space inside the box edges so text doesn't touch borders
@@ -70,16 +68,13 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
         maxWidth: '400px' // But never let box get wider than 400 pixels, even on large screens
       }}>
         
-        {/* Header section with app title */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          {/* Arabic title with special formatting */}
           <div style={{
             fontFamily: 'Amiri, "Noto Naskh Arabic", "Times New Roman", serif', // Use fonts that display Arabic text correctly
             direction: 'rtl', // Make text flow right-to-left as Arabic should
             marginBottom: '8px', // Add small space below this text
             textAlign: 'center' // Center the Arabic text horizontally
           }}>
-            {/* First line of Arabic title */}
             <div style={{
               fontSize: '28px', // Make text large and prominent
               fontWeight: '700', // Make text very bold
@@ -87,30 +82,25 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
               lineHeight: '1.2', // Set spacing between lines if text wraps
               textShadow: '0 2px 4px rgba(0,0,0,0.1)' // Add subtle shadow behind text for depth
             }}>
-              قُرْآنًا {/* Display Arabic word meaning "Quran" */}
+              قُرْآنًا
             </div>
-            {/* Second line of Arabic title */}
             <div style={{
               fontSize: '28px', // Make text large and prominent
               fontWeight: '600', // Make text semi-bold (slightly less bold than first line)
               color: '#a855f7', // Color text lighter purple for visual variety
               lineHeight: '1.2' // Set spacing between lines if text wraps
             }}>
-              عَرَبِيًّا {/* Display Arabic word meaning "Arabic" */}
+              عَرَبِيًّا
             </div>
           </div>
           
-          {/* Subtitle that changes based on whether user is signing up or logging in */}
           <p style={{ color: '#6b7280', marginTop: '8px' }}>
-            {isSignUp ? 'Create your account' : 'Welcome back'} {/* Show different text based on what mode user is in: if creating account show "Create your account", otherwise show "Welcome back" */}
+            {isSignUp ? 'Create your account' : 'Welcome back'}
           </p>
         </div>
 
-        {/* Form that submits to our handleAuth function */}
         <form onSubmit={handleAuth}>
-          {/* Email input section */}
           <div style={{ marginBottom: '16px' }}>
-            {/* Email label */}
             <label style={{
               display: 'block', // Make label take up full width and appear on its own line
               fontSize: '14px', // Make label text small but readable
@@ -118,9 +108,8 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
               marginBottom: '4px', // Add small space between label and input field
               color: '#374151' // Color label text dark gray
             }}>
-              Email {/* Display "Email" as the label text */}
+              Email
             </label>
-            {/* Email input field */}
             <input
               type="email" // Tell browser this should be an email address (enables email validation and special mobile keyboard)
               value={email} // Show whatever email address we're remembering in our memory, so user sees what they've typed
@@ -137,9 +126,7 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
             />
           </div>
 
-          {/* Password input section */}
           <div style={{ marginBottom: '24px' }}>
-            {/* Password label */}
             <label style={{
               display: 'block', // Make label take up full width and appear on its own line
               fontSize: '14px', // Make label text small but readable
@@ -147,9 +134,8 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
               marginBottom: '4px', // Add small space between label and input field
               color: '#374151' // Color label text dark gray
             }}>
-              Password {/* Display "Password" as the label text */}
+              Password
             </label>
-            {/* Password input field */}
             <input
               type="password" // Tell browser to hide what user types (shows dots instead of letters for security)
               value={password} // Show dots representing whatever password we're remembering, so user sees they've typed something
@@ -167,7 +153,6 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
             />
           </div>
 
-          {/* Submit button */}
           <button
             type="submit" // Tell browser: when this button is clicked, submit the entire form
             disabled={loading} // Make button unclickable when we're busy talking to database (prevents user from clicking multiple times)
@@ -183,13 +168,11 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
               cursor: loading ? 'not-allowed' : 'pointer' // Show "not allowed" cursor when button disabled, normal pointer when clickable
             }}
           >
-            {loading ? 'Loading...' : (isSignUp ? 'Create Account' : 'Sign In')} {/* Show "Loading..." when talking to database, otherwise show "Create Account" if user wants new account or "Sign In" if user wants to login */}
+            {loading ? 'Loading...' : (isSignUp ? 'Create Account' : 'Sign In')}
           </button>
         </form>
 
-        {/* Toggle between signup and login modes */}
         <div style={{ textAlign: 'center', marginTop: '16px' }}>
-          {/* Toggle button styled as a link */}
           <button
             onClick={() => {
               setIsSignUp(!isSignUp); // Update our memory: if currently in signup mode switch to login mode, if in login mode switch to signup mode
@@ -204,11 +187,10 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
               textDecoration: 'underline' // Underline text to make it obviously clickable like a web link
             }}
           >
-            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"} {/* Show "Already have account? Sign in" if user is in signup mode, otherwise show "Don't have account? Sign up" */}
+            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
           </button>
         </div>
 
-        {/* Message display section - only shows if we have a message to display */}
         {message && (
           <div style={{
             marginTop: '16px', // Add space above message so it doesn't touch the toggle link
@@ -222,7 +204,7 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
               : '#059669', // If message doesn't contain error words, make text dark green to indicate success
             fontSize: '14px' // Make message text small but readable
           }}>
-            {message} {/* Display whatever message we're remembering (like "Account created successfully!" or "Error: Invalid password") */}
+            {message}
           </div>
         )}
 
@@ -230,11 +212,3 @@ export function AuthForm() { // Create a reusable piece of website called AuthFo
     </div>
   );
 }
-
-{/* COMPONENT SUMMARY: 
-- PURPOSE: Creates a login/signup form that users interact with to access their accounts
-- MEMORY: Tracks what user has typed, whether we're communicating with database, what mode user is in, and what messages to show
-- BEHAVIOR: When user submits form, communicates with Supabase database to either create new account or verify existing account
-- APPEARANCE: Displays centered white form on gray background with Arabic app title, input fields, submit button, and mode toggle
-- REUSABILITY: Self-contained piece that can be dropped into any part of the website that needs user authentication
-*/}
