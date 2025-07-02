@@ -7609,11 +7609,12 @@ function MainApp({ user }: { user: any }) {
                 </div>
             </div>
             <ProfileDropdown 
-              user={user}
-              onLogout={handleLogout}
-              onGoToSettings={handleGoToSettings}
-              onOpenProfile={handleOpenProfile}
-            />
+                  user={user}
+                  onLogout={handleLogout}
+                  onGoToSettings={handleGoToSettings}
+                  onOpenProfile={handleOpenProfile}
+                />
+            </div>
 
           <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginTop: '16px' }}>
             {[
