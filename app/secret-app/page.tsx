@@ -798,7 +798,7 @@ function MainApp({ user }: { user: any }) {
             </div>
   
             {/* Bio Section */}
-            {profile?.bio && (
+            {profile?.bio && profile.bio.trim() && (
               <div style={{
                 marginTop: '16px',
                 padding: '12px',
