@@ -3254,7 +3254,7 @@ function MainApp({ user }: { user: any }) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
-      setisTabVisible(isVisible);
+      setIsTabVisible(isVisible);
     };
   
     document.addEventListener('visibilitychange', handleVisibilityChange);
