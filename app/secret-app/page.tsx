@@ -2605,105 +2605,11 @@ function MainApp({ user }: { user: any }) {
     return { totalUniqueWords, progressPercentage, totalNew, totalDue, totalLearning };
   };
 
-  const getCurrentSegment = () => {
-    // Adjust for transcript timing offset - subtract time to sync better
-    const adjustedTime = currentTime + 1.0; // Try different values: 0.3, 0.5, 0.7
-    // Try each of these one at a time:
-  // adjustedTime = currentTime - 1.0;  // If text is ahead of audio
-  // adjustedTime = currentTime - 0.5;  // Moderate adjustment
-  // adjustedTime = currentTime + 0.5;  // If text is behind audio
-  // adjustedTime = currentTime + 1.0;  // If text is way behind
-    
-    for (let i = 0; i < transcript.length; i++) {
-        const segment = transcript[i];
-        const segmentStart = segment.start;
-        const segmentEnd = segment.start + (segment.duration || 2);
-        if (adjustedTime >= segmentStart && adjustedTime < segmentEnd) {
-        return { segment, index: i };
-        }
-    }
-    
-    // Fallback logic
-    for (let i = 0; i < transcript.length; i++) {
-        if (transcript[i].start > adjustedTime) {
-        return i > 0 ? { segment: transcript[i-1], index: i-1 } : null;
-        }
-    }
-    return null;
-    };
 
-  // Get next segment
-  const getNextSegment = () => {
-    const currentData = getCurrentSegment();
-    if (currentData && currentData.index + 1 < transcript.length) {
-      return { segment: transcript[currentData.index + 1], index: currentData.index + 1 };
-    }
-    return null;
-  };
 
-  // Get processed words
-  const transcriptWords = transcript.length > 0 && transcript.length < 1000 ? 
-    processTranscriptWords(transcript) : [];
+ 
 
-  // Fixed Harakat functions with better error handling
-  const addHarakat = async (text: string): Promise<string> => {
-    if (harakatCache.has(text)) {
-        return harakatCache.get(text) || text;
-    }
-    
-    try {
-        const response = await fetch('/api/harakat', {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text })
-        });
-        
-        if (response.ok) {
-        const data = await response.json();
-        const harakatText = data.result || text;
-        setHarakatCache(prev => new Map(prev.set(text, harakatText)));
-        return harakatText;
-        } else {
-        console.log('Harakat API error:', response.status);
-        // Cache the original text so we don't keep retrying
-        setHarakatCache(prev => new Map(prev.set(text, text)));
-        return text;
-        }
-    } catch (error) {
-        console.log('Harakat service error:', error);
-        // Cache the original text so we don't keep retrying failed requests
-        setHarakatCache(prev => new Map(prev.set(text, text)));
-        return text;
-    }
-    };
-
-  const processHarakatForTranscript = async () => {
-    if (!transcript.length || isProcessingHarakat) return;
-    
-    setIsProcessingHarakat(true);
-    setCardMessage('🔄 Adding harakat...');
-    
-    try {
-        const processedTranscript = [];
-        for (const segment of transcript) {
-        const harakatText = await addHarakat(segment.text);
-        processedTranscript.push({ ...segment, text: harakatText });
-        // Reduced delay from 100ms to 50ms
-        await new Promise(resolve => setTimeout(resolve, 50));
-        }
-        
-        setTranscript(processedTranscript);
-        setCardMessage('✅ Harakat added!');
-    } catch (error) {
-        console.error('Harakat processing error:', error);
-        setCardMessage('❌ Failed to add harakat');
-    } finally {
-        setIsProcessingHarakat(false);
-        setTimeout(() => setCardMessage(''), 3000);
-    }
-    };
+ 
   const loadCompleteUserData = async () => {
     try {
       const { data, error } = await loadUserStatsAndProfile(user.id);
@@ -3396,74 +3302,7 @@ function MainApp({ user }: { user: any }) {
   };
 
   // Render functions
-  const renderWordByWordTranscript = () => {
-    if (!transcriptWords.length) {
-        return renderSegmentBasedTranscript();
-    }
-    
-    const currentSegmentData = getCurrentSegment();
-    // Show NEXT segment (current + 1) in purple as you had it (this is correct for your transcript)
-    const nextSegmentData = currentSegmentData && currentSegmentData.index + 1 < transcript.length ? 
-        { segment: transcript[currentSegmentData.index + 1], index: currentSegmentData.index + 1 } : null;
-    
-    return (
-        <div style={{ 
-        fontSize: '2.2rem', 
-        lineHeight: '2.8', 
-        direction: 'rtl',
-        fontFamily: 'Arial, sans-serif',
-        padding: '30px 30px 100px 30px',
-        textAlign: 'justify'
-        }}>
-        {transcriptWords.map((word, index) => {
-            const isInNextSegment = nextSegmentData && word.segmentIndex === nextSegmentData.index;
-            const isPastSegment = currentSegmentData && word.segmentIndex <= currentSegmentData.index;
-            
-            return (
-            <span
-                key={`${word.timestamp}-${index}`}
-                // Fixed: Set ref on the FIRST word of the purple segment for auto-scroll
-                ref={isInNextSegment && index === transcriptWords.findIndex(w => w.segmentIndex === nextSegmentData.index) ? currentWordRef : null}
-                style={{
-                cursor: 'pointer',
-                backgroundColor: 'transparent',
-                color: isPastSegment ? '#9ca3af' : // Past segments (including current) gray
-                        isInNextSegment ? '#8b5cf6' : // Next segment purple (actually current audio)
-                        '#333', // Future segments black
-                fontWeight: isInNextSegment ? '600' : '400',
-                transition: 'all 0.15s ease',
-                opacity: isPastSegment ? '0.7' : '1',
-                padding: '1px 2px',
-                borderRadius: '2px',
-                display: 'inline'
-                }}
-                onMouseEnter={(e) => {
-                if (!isInNextSegment) {
-                    e.currentTarget.style.backgroundColor = '#f8f9fa';
-                }
-                }}
-                onMouseLeave={(e) => {
-                if (!isInNextSegment) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                }
-                }}
-                onClick={() => handleIndividualWordClick(word, word.timestamp)}
-                onDoubleClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleWordDoubleClick(word);
-                }}
-                title={`"${word.text}" - Double-click to add to flashcards`}
-            >
-                {word.text}
-                {index < transcriptWords.length - 1 ? ' ' : ''}
-            </span>
-            );
-        })}
-        </div>
-    );
-    };
-  // STEP 6: Add these render functions to your MainApp component:
+ 
 
   // Deck list with integrated Manage button
   const renderDeckList = () => {
@@ -3743,72 +3582,7 @@ function MainApp({ user }: { user: any }) {
     </div>
    );
   };
-  const renderSegmentBasedTranscript = () => {
-    if (!transcript.length) return null;
-    const currentData = getCurrentSegment();
-    // Show NEXT segment (current + 1) in purple as requested
-    const nextData = currentData && currentData.index + 1 < transcript.length ? 
-      { segment: transcript[currentData.index + 1], index: currentData.index + 1 } : null;
-    
-    return (
-      <div style={{ 
-        fontSize: '2.2rem', 
-        lineHeight: '2.8', 
-        direction: 'rtl',
-        fontFamily: 'Arial, sans-serif',
-        padding: '30px 30px 100px 30px',
-        textAlign: 'justify'
-      }}>
-        {transcript.map((segment, index) => {
-          const isNextSegment = nextData && nextData.index === index;
-          const isPastSegment = currentData && index <= currentData.index;
-          const words = segment.text.split(/\s+/);
-          
-          return (
-            <span
-              key={`${segment.start}-${index}`}
-              ref={isNextSegment ? currentWordRef : null}
-              style={{
-                backgroundColor: 'transparent',
-                color: isPastSegment ? '#9ca3af' : // Past segments (including current) gray
-                       isNextSegment ? '#8b5cf6' : // Next segment purple
-                       '#333', // Future segments black
-                fontWeight: isNextSegment ? '600' : '400',
-                transition: 'all 0.15s ease',
-                opacity: isPastSegment ? '0.7' : '1',
-                padding: '0px',
-                borderRadius: '0px',
-                display: 'inline',
-                cursor: 'pointer'
-              }}
-              onClick={() => seekTo(segment.start)}
-            >
-              {words.map((word, wordIndex) => (
-                <span
-                  key={`${word}-${wordIndex}`}
-                  style={{ cursor: 'pointer' }}
-                  onDoubleClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const wordObj = {
-                      text: word,
-                      timestamp: segment.start,
-                      segmentText: segment.text,
-                      segmentIndex: index
-                    };
-                    handleWordDoubleClick(wordObj);
-                  }}
-                >
-                  {word}
-                  {wordIndex < words.length - 1 ? ' ' : ''}
-                </span>
-              ))}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
+
 
   const renderCardModal = () => {
     if (!showCardModal) return null;
