@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AuthForm } from '@/components/AuthForm';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
-import { VideoPlayer } from '@/components/VideoPlayer';
 import { supabase } from '@/lib/supabase'
 import { 
   createOrGetDeck, 
@@ -71,7 +70,22 @@ declare global {
 function MainApp({ user }: { user: any }) {
   const [activeTab, setActiveTab] = useState('watch');
   
-
+  
+  // Video states
+  const [player, setPlayer] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [currentVideoId, setCurrentVideoId] = useState('');
+  const [currentVideoTitle, setCurrentVideoTitle] = useState('');
+  const [transcript, setTranscript] = useState<any[]>([]);
+  const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
+  const [transcriptError, setTranscriptError] = useState('');
+  const playerRef = useRef<HTMLDivElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  const currentWordRef = useRef<HTMLSpanElement>(null);
 
   // Deck states
   const [decks, setDecks] = useState<any[]>([]);
@@ -183,8 +197,28 @@ function MainApp({ user }: { user: any }) {
     current_video_timestamp: 0,
     video_keep_playing_background: true
   });
-
+  const [isVideoPlayingBackground, setIsVideoPlayingBackground] = useState(false);
+  const [backgroundVideoInfo, setBackgroundVideoInfo] = useState(null);
+  const [showBackgroundControls, setShowBackgroundControls] = useState(false);
+  const [backgroundVideoError, setBackgroundVideoError] = useState('');
+  const [savedVideoState, setSavedVideoState] = useState(null);
+  const [videoTimestampInterval, setVideoTimestampInterval] = useState(null);
+  const [previousTab, setPreviousTab] = useState('my-cards'); // Track which tab to return to
+   // Immersion tracking states
+  const [immersionSession, setImmersionSession] = useState({
+    isActive: false,
+    startTime: null,
+    totalSeconds: 0,
+    focusedSeconds: 0,
+    freeflowSeconds: 0,
+    lastSaveTime: 0,
+    currentMode: 'focused' // 'focused' or 'freeflow'
+  });
   
+  const [isTabVisible, setIsTabVisible] = useState(true);
+  const immersionIntervalRef = useRef(null);
+  const saveIntervalRef = useRef(null);
+
   //profile states
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [userStats, setUserStats] = useState({
@@ -202,6 +236,27 @@ function MainApp({ user }: { user: any }) {
       });
     }
   }, [showProfileModal, user?.id]);
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsTabVisible(isVisible);
+      
+      // Update immersion mode based on visibility
+      if (immersionSession.isActive && isPlaying) {
+        const newMode = isVisible ? 'focused' : 'freeflow';
+        setImmersionSession(prev => ({
+          ...prev,
+          currentMode: newMode
+        }));
+        console.log(`🔄 Switched to ${newMode} mode (tab ${isVisible ? 'visible' : 'hidden'})`);
+      }
+    };
+  
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [immersionSession.isActive, isPlaying]);
+
+  
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -252,14 +307,48 @@ function MainApp({ user }: { user: any }) {
       const { data, error } = await getUserSettings(user.id);
       if (!error && data) {
         setUserSettings(data);
+        
+        // Load saved video state
+        if (data.current_video_url) {
+          setSavedVideoState({
+            url: data.current_video_url,
+            timestamp: data.current_video_timestamp || 0
+          });
+          setVideoUrl(data.current_video_url);
+          setCurrentVideoId(extractVideoId(data.current_video_url));
+        }
       }
     } catch (error) {
       console.error('Error loading user settings:', error);
     }
   };
-
+  const saveCurrentVideoState = async () => {
+    if (!user?.id || !currentVideoId || !player) return;
+    
+    try {
+      const currentTime = player.getCurrentTime();
+      await saveVideoState(user.id, videoUrl, currentTime);
+      console.log('✅ Video state saved:', { videoUrl, currentTime });
+    } catch (error) {
+      console.error('❌ Failed to save video state:', error);
+    }
+  };
   const renderProfileModal = () => {
     if (!showProfileModal) return null;
+  
+    // Helper function to format seconds into readable time
+    const formatTime = (seconds) => {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      } else if (minutes > 0) {
+        return `${minutes}m`;
+      } else {
+        return `${seconds}s`;
+      }
+    };
   
     const { profile, stats, streaks } = userProfileData;
   
@@ -613,6 +702,34 @@ function MainApp({ user }: { user: any }) {
     );
   };
 
+
+  const clearCurrentVideoState = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Stop immersion session before clearing video
+      await stopImmersionSession();
+      
+      await clearVideoState(user.id);
+      setSavedVideoState(null);
+      setVideoUrl('');
+      setCurrentVideoId('');
+      setCurrentVideoTitle('');
+      setTranscript([]);
+      
+      if (player) {
+        player.stopVideo();
+      }
+      
+      setCardMessage('✅ Video cleared successfully');
+      setTimeout(() => setCardMessage(''), 3000);
+    } catch (error) {
+      console.error('❌ Failed to clear video state:', error);
+      setCardMessage('❌ Failed to clear video');
+      setTimeout(() => setCardMessage(''), 3000);
+    }
+  };
+
   const saveUserSettings = async (newSettings) => {
     if (!user?.id) return;
     try {
@@ -639,9 +756,149 @@ function MainApp({ user }: { user: any }) {
   const backFromSettings = () => {
     setActiveTab(previousTab);
   };
-
+  const startImmersionSession = () => {
+    console.log('🎯 Starting new immersion session');
+    
+    if (!user?.id || !currentVideoId) {
+      console.log('❌ Cannot start session - missing user or video');
+      return;
+    }
   
- 
+    // Stop any existing session first
+    stopImmersionSession();
+  
+    const now = new Date();
+    setImmersionSession({
+      isActive: true,
+      startTime: now,
+      totalSeconds: 0,
+      focusedSeconds: 0,
+      freeflowSeconds: 0,
+      lastSaveTime: 0,
+      currentMode: isTabVisible ? 'focused' : 'freeflow'
+    });
+  
+    // Start the main timer (every second)
+    immersionIntervalRef.current = setInterval(() => {
+      setImmersionSession(prev => {
+        if (!prev.isActive) return prev;
+  
+        const newTotal = prev.totalSeconds + 1;
+        const newFocused = prev.currentMode === 'focused' ? prev.focusedSeconds + 1 : prev.focusedSeconds;
+        const newFreeflow = prev.currentMode === 'freeflow' ? prev.freeflowSeconds + 1 : prev.freeflowSeconds;
+  
+        return {
+          ...prev,
+          totalSeconds: newTotal,
+          focusedSeconds: newFocused,
+          freeflowSeconds: newFreeflow
+        };
+      });
+    }, 1000);
+  
+    // Start the save interval (every 5 seconds)
+    saveIntervalRef.current = setInterval(() => {
+      saveImmersionProgress();
+    }, 5000);
+  
+    console.log('✅ Immersion session started');
+  };
+  const stopImmersionSession = async () => {
+    console.log('⏹️ Stopping immersion session');
+  
+    // Clear intervals
+    if (immersionIntervalRef.current) {
+      clearInterval(immersionIntervalRef.current);
+      immersionIntervalRef.current = null;
+    }
+    if (saveIntervalRef.current) {
+      clearInterval(saveIntervalRef.current);
+      saveIntervalRef.current = null;
+    }
+  
+    // Final save
+    if (immersionSession.isActive && immersionSession.totalSeconds > 0) {
+      await saveImmersionProgress(true);
+    }
+  
+    // Reset session
+    setImmersionSession({
+      isActive: false,
+      startTime: null,
+      totalSeconds: 0,
+      focusedSeconds: 0,
+      freeflowSeconds: 0,
+      lastSaveTime: 0,
+      currentMode: 'focused'
+    });
+  
+    console.log('✅ Immersion session stopped');
+  };
+  const saveImmersionProgress = async (totalSeconds, isFinalSave = false) => {
+    if (!user?.id || !currentVideoId || !immersionSession.isActive) return;
+  
+    const session = immersionSession;
+    const timeToSave = session.totalSeconds - session.lastSaveTime;
+    
+    if (timeToSave <= 0 && !isFinalSave) return;
+  
+    try {
+      console.log(`💾 Saving ${timeToSave}s (${session.focusedSeconds}f + ${session.freeflowSeconds}ff)`);
+  
+      // Calculate time breakdown since last save
+      const focusedToSave = Math.max(0, session.focusedSeconds - session.lastSaveTime);
+      const freeflowToSave = Math.max(0, session.freeflowSeconds - session.lastSaveTime);
+  
+      // Update daily stats
+      const dailyResult = await updateDailyImmersionStats(user.id, focusedToSave, freeflowToSave);
+      if (dailyResult.error) {
+        console.error('❌ Failed to update daily stats:', dailyResult.error);
+      } else {
+        console.log('✅ Daily stats updated');
+      }
+  
+      // Save video timestamp
+      if (player && player.getCurrentTime) {
+        const currentTime = player.getCurrentTime();
+        const videoResult = await saveVideoState(user.id, videoUrl, currentTime);
+        if (videoResult.success) {
+          console.log('✅ Video state saved');
+        } else {
+          console.error('❌ Failed to save video state:', videoResult.error);
+        }
+      }
+  
+      // If final save, create session record
+      if (isFinalSave) {
+        const sessionResult = await saveImmersionSession(
+          user.id,
+          currentVideoId,
+          currentVideoTitle || 'Unknown Video',
+          session.startTime,
+          new Date(),
+          session.focusedSeconds,
+          session.freeflowSeconds
+        );
+        
+        if (sessionResult.error) {
+          console.error('❌ Failed to save session:', sessionResult.error);
+        } else {
+          console.log('✅ Session record saved');
+        }
+      }
+  
+      // Update last save time
+      setImmersionSession(prev => ({
+        ...prev,
+        lastSaveTime: prev.totalSeconds
+      }));
+  
+    } catch (error) {
+      console.error('❌ Error saving immersion progress:', error);
+    }
+  };
+
+
     
     // Load cards for a specific deck
   const loadDeckCards = async (deck) => {
@@ -2273,21 +2530,6 @@ function MainApp({ user }: { user: any }) {
         )}
       </div>
     );
-    // ✅ KEEP these helper functions that are used by other components:
-  const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  };
-  
-  const cleanArabicWord = (word: string): string => {
-    return word.replace(/[^\u0600-\u06FF\u0750-\u077F]/g, '').trim();
-  };
   // 2. ENHANCED QURAN TRANSLATION CALL WITH CACHING
   const handleQuranWordDoubleClick = async (word: string, surahNumber: number, verseNumber: number, wordPosition: number, verseText: string) => {
     if (!user?.id) {
@@ -2532,11 +2774,105 @@ function MainApp({ user }: { user: any }) {
     return { totalUniqueWords, progressPercentage, totalNew, totalDue, totalLearning };
   };
 
+  const getCurrentSegment = () => {
+    // Adjust for transcript timing offset - subtract time to sync better
+    const adjustedTime = currentTime + 1.0; // Try different values: 0.3, 0.5, 0.7
+    // Try each of these one at a time:
+  // adjustedTime = currentTime - 1.0;  // If text is ahead of audio
+  // adjustedTime = currentTime - 0.5;  // Moderate adjustment
+  // adjustedTime = currentTime + 0.5;  // If text is behind audio
+  // adjustedTime = currentTime + 1.0;  // If text is way behind
+    
+    for (let i = 0; i < transcript.length; i++) {
+        const segment = transcript[i];
+        const segmentStart = segment.start;
+        const segmentEnd = segment.start + (segment.duration || 2);
+        if (adjustedTime >= segmentStart && adjustedTime < segmentEnd) {
+        return { segment, index: i };
+        }
+    }
+    
+    // Fallback logic
+    for (let i = 0; i < transcript.length; i++) {
+        if (transcript[i].start > adjustedTime) {
+        return i > 0 ? { segment: transcript[i-1], index: i-1 } : null;
+        }
+    }
+    return null;
+    };
 
+  // Get next segment
+  const getNextSegment = () => {
+    const currentData = getCurrentSegment();
+    if (currentData && currentData.index + 1 < transcript.length) {
+      return { segment: transcript[currentData.index + 1], index: currentData.index + 1 };
+    }
+    return null;
+  };
 
- 
+  // Get processed words
+  const transcriptWords = transcript.length > 0 && transcript.length < 1000 ? 
+    processTranscriptWords(transcript) : [];
 
- 
+  // Fixed Harakat functions with better error handling
+  const addHarakat = async (text: string): Promise<string> => {
+    if (harakatCache.has(text)) {
+        return harakatCache.get(text) || text;
+    }
+    
+    try {
+        const response = await fetch('/api/harakat', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text })
+        });
+        
+        if (response.ok) {
+        const data = await response.json();
+        const harakatText = data.result || text;
+        setHarakatCache(prev => new Map(prev.set(text, harakatText)));
+        return harakatText;
+        } else {
+        console.log('Harakat API error:', response.status);
+        // Cache the original text so we don't keep retrying
+        setHarakatCache(prev => new Map(prev.set(text, text)));
+        return text;
+        }
+    } catch (error) {
+        console.log('Harakat service error:', error);
+        // Cache the original text so we don't keep retrying failed requests
+        setHarakatCache(prev => new Map(prev.set(text, text)));
+        return text;
+    }
+    };
+
+  const processHarakatForTranscript = async () => {
+    if (!transcript.length || isProcessingHarakat) return;
+    
+    setIsProcessingHarakat(true);
+    setCardMessage('🔄 Adding harakat...');
+    
+    try {
+        const processedTranscript = [];
+        for (const segment of transcript) {
+        const harakatText = await addHarakat(segment.text);
+        processedTranscript.push({ ...segment, text: harakatText });
+        // Reduced delay from 100ms to 50ms
+        await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        setTranscript(processedTranscript);
+        setCardMessage('✅ Harakat added!');
+    } catch (error) {
+        console.error('Harakat processing error:', error);
+        setCardMessage('❌ Failed to add harakat');
+    } finally {
+        setIsProcessingHarakat(false);
+        setTimeout(() => setCardMessage(''), 3000);
+    }
+    };
   const loadCompleteUserData = async () => {
     try {
       const { data, error } = await loadUserStatsAndProfile(user.id);
@@ -2574,7 +2910,18 @@ function MainApp({ user }: { user: any }) {
     }
   }, [user?.id]);
 
-
+  
+  useEffect(() => {
+    console.log('🔍 Checking initialization conditions:', {
+      currentVideoId: currentVideoId,
+      windowYT: !!window.YT
+    });
+    
+    if (currentVideoId && window.YT) {
+      console.log('🎯 Both conditions met, calling initializePlayer');
+      setTimeout(() => initializePlayer(), 500);
+    }
+  }, [currentVideoId]);
   useEffect(() => {
     if (showProfileModal && user?.id) {
       loadCompleteUserData();
@@ -2611,6 +2958,45 @@ function MainApp({ user }: { user: any }) {
   useEffect(() => {
     if (user?.id) loadUserDecks();
   }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'watch') {
+      loadYouTubeAPI();
+      // Show background controls if video was playing in background
+      if (isVideoPlayingBackground) {
+        setShowBackgroundControls(false);
+        setIsVideoPlayingBackground(false);
+      }
+    } else {
+      // User switched away from watch tab
+      console.log('🐛 DEBUG: Tab switched away from watch');
+      console.log('🐛 player exists:', !!player);
+      console.log('🐛 isPlaying:', isPlaying);
+      console.log('🐛 background setting:', userSettings.video_keep_playing_background);
+      console.log('🐛 currentVideoId:', currentVideoId);
+      if (player && isPlaying && userSettings.video_keep_playing_background && currentVideoId) {
+        // Enable background mode
+        setIsVideoPlayingBackground(true);
+        setShowBackgroundControls(true);
+        setBackgroundVideoInfo({
+          title: currentVideoTitle,
+          videoId: currentVideoId,
+          timestamp: player.getCurrentTime ? player.getCurrentTime() : 0
+        });
+        console.log('🎵 Video continues playing in background');
+      } else if (player && isPlaying && !userSettings.video_keep_playing_background) {
+        // Stop video if background play is disabled
+        player.pauseVideo();
+        console.log('⏸ Video paused - background play disabled');
+      }
+    }
+  }, [activeTab, player, isPlaying, userSettings.video_keep_playing_background, currentVideoId, currentVideoTitle]);
+
+  useEffect(() => {
+    if (currentVideoId && window.YT) {
+      setTimeout(() => initializePlayer(), 500);
+    }
+  }, [currentVideoId]);
 
   useEffect(() => {
     if (autoScrollEnabled && !autoScrollPaused && currentPlayingVerse && playbackMode === 'full') {
@@ -2726,7 +3112,141 @@ function MainApp({ user }: { user: any }) {
   }, []);
 
   // YouTube functions
+  const loadYouTubeAPI = () => {
+    console.log('🔄 Loading YouTube API...');
+    if (!window.YT) {
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      document.body.appendChild(script);
+      window.onYouTubeIframeAPIReady = () => {
+        console.log('✅ YouTube API loaded and ready!');
+      };
+    } else {
+      console.log('✅ YouTube API already loaded');
+    }
+  };
+  const initializePlayer = () => {
+    console.log('🎯 initializePlayer called');
+    console.log('YouTube API ready:', !!window.YT);
+    console.log('Player ref exists:', !!playerRef.current);
+    console.log('Current video ID:', currentVideoId);
+    
+    if (!window.YT || !playerRef.current || !currentVideoId) {
+      console.log('❌ Missing requirements for player initialization');
+      return;
+    }
+    
+    try {
+      if (player) {
+        // Only destroy player if NOT in background mode or if it's a new video
+        if (!isVideoPlayingBackground || (backgroundVideoInfo && backgroundVideoInfo.videoId !== currentVideoId)) {
+          console.log('🔄 Destroying existing player');
+          player.destroy();
+          setPlayer(null);
+        } else {
+          console.log('🎵 Keeping existing player for background mode');
+          return; // Don't recreate player if it's the same video in background mode
+        }
+      }
+      
+      console.log('🔄 Creating new YouTube player...');
+      const newPlayer = new window.YT.Player(playerRef.current, {
+        height: '100%',
+        width: '100%',
+        videoId: currentVideoId,
+        playerVars: {
+          autoplay: 0,
+          controls: 1,
+          disablekb: 0,
+          enablejsapi: 1,
+          fs: 1,
+          rel: 0,
+          modestbranding: 1
+        },
+        events: {
+          onReady: (event) => {
+            console.log('✅ YouTube player ready!');
+            onPlayerReady(event);
+          },
+          onStateChange: onPlayerStateChange,
+          onError: (error) => {
+            console.error('❌ YouTube player error:', error.data);
+            setTranscriptError('Video failed to load');
+          }
+        }
+      });
+      
+      console.log('✅ Player created successfully');
+    } catch (error) {
+      console.error('❌ Player initialization error:', error);
+    }
+  };
 
+  const onPlayerReady = (event: any) => {
+    try {
+      console.log('🎬 onPlayerReady called');
+      const videoDuration = event.target.getDuration();
+      setDuration(videoDuration);
+      const videoData = event.target.getVideoData();
+      
+      console.log('📹 Video data:', videoData);
+      console.log('👤 User ID:', user?.id);
+      console.log('🆔 Current Video ID:', currentVideoId);
+      
+      if (videoData && videoData.title) {
+        setCurrentVideoTitle(videoData.title);
+        if (user?.id) {
+          console.log('🔄 About to call handleCreateOrGetDeck...');
+          handleCreateOrGetDeck(videoData.title, currentVideoId);
+          console.log('✅ handleCreateOrGetDeck called');
+          
+          // Restore video timestamp if this is a saved video
+          if (savedVideoState && savedVideoState.timestamp > 0) {
+            console.log('🔄 Restoring video timestamp:', savedVideoState.timestamp);
+            setTimeout(() => {
+              if (event.target && event.target.seekTo) {
+                event.target.seekTo(savedVideoState.timestamp, true);
+              }
+            }, 1000);
+          }
+        } else {
+          console.log('❌ No user ID - cannot create deck');
+        }
+      } else {
+        console.log('❌ No video data or title');
+      }
+      
+      // Clear any existing interval
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      
+      // Use requestAnimationFrame for smooth updates (60fps when playing)
+      const updateTime = () => {
+        if (event.target && event.target.getCurrentTime && event.target.getPlayerState() === window.YT.PlayerState.PLAYING) {
+          setCurrentTime(event.target.getCurrentTime());
+        }
+        intervalRef.current = requestAnimationFrame(updateTime);
+      };
+      
+      updateTime(); // Start the animation loop
+      setPlayer(event.target);
+      // Start timestamp saving interval
+      if (videoTimestampInterval) {
+        clearInterval(videoTimestampInterval);
+      }
+      
+      const interval = setInterval(() => {
+        if (event.target && event.target.getCurrentTime && user?.id && currentVideoId) {
+          const currentTime = event.target.getCurrentTime();
+          saveVideoState(user.id, videoUrl, currentTime);
+        }
+      }, 3000); // Save every 3 seconds
+      
+      setVideoTimestampInterval(interval);
+    } catch (error) {
+      console.error('Error in onPlayerReady:', error);
+    }
+  };
   const loadUserProfileForSettings = async () => {
     if (!user?.id) return;
     
@@ -2822,6 +3342,38 @@ function MainApp({ user }: { user: any }) {
   };
 
 
+  const onPlayerStateChange = (event: any) => {
+    try {
+      const isNowPlaying = event.data === window.YT.PlayerState.PLAYING;
+      setIsPlaying(isNowPlaying);
+  
+      if (isNowPlaying) {
+        // Start or resume immersion tracking
+        if (!immersionSession.isActive) {
+          startImmersionSession();
+        } else {
+          // Just update the mode based on current tab visibility
+          setImmersionSession(prev => ({
+            ...prev,
+            currentMode: isTabVisible ? 'focused' : 'freeflow'
+          }));
+          console.log('🔄 Resumed tracking in', isTabVisible ? 'focused' : 'freeflow', 'mode');
+        }
+      } else if (event.data === window.YT.PlayerState.PAUSED) {
+        // Pause tracking but don't stop session
+        if (immersionIntervalRef.current) {
+          clearInterval(immersionIntervalRef.current);
+          immersionIntervalRef.current = null;
+        }
+        console.log('⏸️ Paused immersion tracking');
+      } else if (event.data === window.YT.PlayerState.ENDED) {
+        // Stop the session when video ends
+        stopImmersionSession();
+      }
+    } catch (error) {
+      console.error('Error in onPlayerStateChange:', error);
+    }
+  };
 
   // Deck functions
   const handleCreateOrGetDeck = async (videoTitle: string, videoId: string) => {
@@ -2875,14 +3427,109 @@ function MainApp({ user }: { user: any }) {
     }
   };
 
-  
+  // Video functions
+  const extractVideoId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
 
-  
+  const seekTo = (seconds: number) => {
+    if (player && player.seekTo) {
+        try {
+        // Don't subtract time here since we're using segmentStart directly
+        player.seekTo(seconds, true);
+        } catch (error) {
+        console.error('Error seeking:', error);
+        }
+    }
+    };
+
+  const fetchTranscript = async (videoId: string) => {
+    if (!videoId) return;
+    setIsLoadingTranscript(true);
+    setTranscriptError('');
+    
+    try {
+      const response = await fetch(`/api/transcript?videoId=${videoId}`);
+      const data = await response.json();
+      
+      if (data.transcript && data.transcript.length > 0) {
+        setTranscript(data.transcript);
+        setTranscriptError('');
+        
+        // CREATE DECK HERE since video player is blocked
+        if (user?.id && currentVideoId) {
+          console.log('🔄 Creating deck from transcript fetch...');
+          await handleCreateOrGetDeck(`Video ${videoId}`, videoId);
+        }
+        
+      } else {
+        setTranscriptError('');
+        setTranscript([]);
+        setCardMessage('ℹ️ No transcript available for this video');
+        setTimeout(() => setCardMessage(''), 5000);
+      }
+    } catch (error: any) {
+      setTranscriptError('');
+      setTranscript([]);
+      setCardMessage('ℹ️ No transcript available for this video');
+      setTimeout(() => setCardMessage(''), 5000);
+    } finally {
+      setIsLoadingTranscript(false);
+    }
+  };
+
+  const loadNewVideo = async () => {
+    const videoId = extractVideoId(videoUrl);
+    if (!videoId) {
+      setTranscriptError('Please enter a valid YouTube URL');
+      return;
+    }
+    if (videoId === currentVideoId) return;
+
+    console.log('🎬 Loading new video:', videoId);
+
+    setCurrentVideoId('');
+    setCurrentVideoTitle('');
+    setTranscript([]);
+    setTranscriptError('');
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+    setCurrentDeck(null);
+    
+    if (player) {
+      try {
+        player.destroy();
+      } catch (e) {
+        console.log('Error destroying player:', e);
+      }
+      setPlayer(null);
+    }
+    
+    console.log('🔄 Setting video ID:', videoId);
+    setCurrentVideoId(videoId);
+    
+    console.log('🔄 Fetching transcript...');
+    await fetchTranscript(videoId);
+    
+    console.log('✅ Video loading complete');
+    console.log('🔄 Setting video ID:', videoId);
+    setCurrentVideoId(videoId);
+    console.log('✅ Video loading complete');
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // Card functions
   const handleIndividualWordClick = (word: any, timestamp: number) => {
     // Use the segment start time, not the calculated word timestamp
-   // seekTo(word.segmentStart);
+    seekTo(word.segmentStart);
     };
   const handleWordDoubleClick = async (word) => {
     if (!user?.id) {
@@ -3191,6 +3838,386 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 3000);
     }
   };
+  // Persistent Watch Tab Content (always mounted when video exists)
+  const renderWatchTabContent = () => (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: '600', margin: '0' }}>Watch Videos</h2>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {currentDeck && (
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#059669', 
+              fontWeight: '500',
+              backgroundColor: '#f0fdf4',
+              padding: '4px 8px',
+              borderRadius: '6px'
+            }}>
+              📚 {currentDeck.name}
+            </div>
+          )}
+          {currentVideoTitle && (
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#8b5cf6', 
+              fontWeight: '500',
+              backgroundColor: '#f3f0ff',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              maxWidth: '300px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {currentVideoTitle}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div style={{ backgroundColor: 'white', padding: '12px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="Paste YouTube URL here..."
+            style={{
+              flex: '1',
+              padding: '8px 12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              fontSize: '14px',
+              outline: 'none'
+            }}
+          />
+          <button
+            onClick={loadNewVideo}
+            disabled={isLoadingTranscript}
+            style={{
+              backgroundColor: isLoadingTranscript ? '#9ca3af' : '#8b5cf6',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              fontWeight: '600',
+              cursor: isLoadingTranscript ? 'not-allowed' : 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            {isLoadingTranscript ? 'Loading...' : 'Load'}
+          </button>
+          {currentVideoId && (
+              <button
+                onClick={clearCurrentVideoState}
+                style={{
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                🗑️ Clear
+              </button>
+            )}
+          
+          {transcript.length > 0 && (
+            <button
+              onClick={processHarakatForTranscript}
+              disabled={isProcessingHarakat}
+              style={{
+                backgroundColor: isProcessingHarakat ? '#9ca3af' : '#059669',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: 'none',
+                fontWeight: '600',
+                cursor: isProcessingHarakat ? 'not-allowed' : 'pointer',
+                fontSize: '12px',
+                whiteSpace: 'nowrap'
+              }}
+              title="Add harakat (diacritics) to Arabic text"
+            >
+              {isProcessingHarakat ? '⏳' : 'ً◌'} Harakat
+            </button>
+          )}
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '12px',
+            fontWeight: '500',
+            color: '#374151',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={userSettings.video_keep_playing_background}
+              onChange={async (e) => {
+                const newValue = e.target.checked;
+                setUserSettings(prev => ({
+                  ...prev,
+                  video_keep_playing_background: newValue
+                }));
+                await updateVideoBackgroundSetting(user.id, newValue);
+              }}
+              style={{ marginRight: '4px' }}
+            />
+            🎵 Keep playing in background
+          </label>
+        </div>
+        
+        {cardMessage && (
+          <div style={{
+            marginTop: '8px',
+            padding: '8px',
+            backgroundColor: cardMessage.includes('✅') ? '#f0fdf4' : 
+                            cardMessage.includes('⚠️') ? '#fffbeb' : '#fef2f2',
+            color: cardMessage.includes('✅') ? '#059669' : 
+                   cardMessage.includes('⚠️') ? '#d97706' : '#dc2626',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: '500'
+          }}>
+            {cardMessage}
+          </div>
+        )}
+        
+        {transcriptError && (
+          <div style={{
+            marginTop: '8px',
+            padding: '8px',
+            backgroundColor: '#fef2f2',
+            color: '#dc2626',
+            borderRadius: '4px',
+            fontSize: '12px'
+          }}>
+            ⚠️ {transcriptError}
+          </div>
+        )}
+      </div>
+      
+      {currentVideoId && (
+        <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 200px)' }}>
+          <div style={{ width: '30%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: 'auto' }}>
+              <div style={{ aspectRatio: '16/9', backgroundColor: '#000', borderRadius: '8px', marginBottom: '12px' }}>
+                <div ref={playerRef} style={{ width: '100%', height: '100%', borderRadius: '8px' }}></div>
+              </div>
+  
+              <div style={{ 
+                backgroundColor: '#f9fafb', 
+                borderRadius: '6px', 
+                padding: '12px',
+                marginBottom: '12px'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                  📚 Current Deck
+                </h4>
+                {currentDeck ? (
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#8b5cf6', fontWeight: '500', marginBottom: '6px' }}>
+                      {currentDeck.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                      Total cards: {currentDeck.totalCards || 0}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                    Load a video to create a deck
+                  </div>
+                )}
+              </div>
+  
+              <div style={{ 
+                backgroundColor: '#f0fdf4', 
+                borderRadius: '6px', 
+                padding: '12px',
+                border: '1px solid #d1fae5'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', color: '#059669' }}>
+                  💡 How to Use
+                </h4>
+                <ul style={{ margin: '0', paddingLeft: '16px', fontSize: '11px', color: '#065f46', lineHeight: '1.4' }}>
+                  <li>Click words to jump to that time</li>
+                  <li><strong>Double-click Arabic words</strong> to add to flashcards</li>
+                  <li>Next segment (coming up) is highlighted in purple</li>
+                  <li>Past and current segments are grayed out</li>
+                  <li>Future segments are black</li>
+                  <li>Transcript auto-scrolls with playback</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+  
+          <div style={{ width: '70%' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div 
+                ref={transcriptRef}
+                style={{ 
+                  flex: '1', 
+                  overflowY: 'auto', 
+                  maxHeight: 'calc(100vh - 220px)',
+                  scrollPaddingBottom: '100px'
+                }}
+              >
+                {transcript.length > 0 ? (
+                  renderWordByWordTranscript()
+                ) : (
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    height: '100%', 
+                    color: '#6b7280',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📺</div>
+                    <p>Load a video to see the interactive transcript</p>
+                    <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', marginTop: '8px' }}>
+                      Double-click Arabic words to add them to your flashcard deck
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  // Background Video Controls Component
+  const renderBackgroundVideoControls = () => {
+    if (!showBackgroundControls || !backgroundVideoInfo) return null;
+  
+    return (
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        backgroundColor: 'white',
+        padding: '12px 16px',
+        borderRadius: '12px',
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)',
+        border: '2px solid #8b5cf6',
+        zIndex: 1000,
+        minWidth: '280px',
+        maxWidth: '350px'
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '600', color: '#8b5cf6' }}>
+            🎵 Playing in Background
+          </div>
+          <button
+            onClick={() => {
+              if (player) {
+                player.pauseVideo();
+              }
+              setShowBackgroundControls(false);
+              setIsVideoPlayingBackground(false);
+              setBackgroundVideoInfo(null);
+            }}
+            style={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              color: '#6b7280',
+              cursor: 'pointer',
+              fontSize: '16px',
+              padding: '2px'
+            }}
+            title="Stop background playback"
+          >
+            ✕
+          </button>
+        </div>
+  
+        {/* Video Info */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ 
+            fontSize: '14px', 
+            fontWeight: '600', 
+            color: '#374151',
+            marginBottom: '4px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>
+            {backgroundVideoInfo.title || 'Video Playing'}
+          </div>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            {formatTime(backgroundVideoInfo.timestamp || 0)}
+          </div>
+        </div>
+  
+        {/* Controls */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              if (player) {
+                if (isPlaying) {
+                  player.pauseVideo();
+                } else {
+                  player.playVideo();
+                }
+              }
+            }}
+            style={{
+              backgroundColor: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              flex: '1'
+            }}
+          >
+            {isPlaying ? '⏸ Pause' : '▶ Play'}
+          </button>
+          
+          <button
+            onClick={() => {
+              setActiveTab('watch');
+            }}
+            style={{
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              flex: '1'
+            }}
+          >
+            📺 Return to Video
+          </button>
+        </div>
+  
+        {/* Error Display */}
+        {backgroundVideoError && (
+          <div style={{
+            marginTop: '8px',
+            padding: '6px 8px',
+            backgroundColor: '#fef2f2',
+            color: '#dc2626',
+            borderRadius: '4px',
+            fontSize: '11px'
+          }}>
+            {backgroundVideoError}
+          </div>
+        )}
+      </div>
+    );
+  };
   // Background Status Indicator Component
   const renderBackgroundStatusIndicator = () => {
     if (!isVideoPlayingBackground || activeTab === 'watch' || !backgroundVideoInfo) return null;
@@ -3229,7 +4256,74 @@ function MainApp({ user }: { user: any }) {
   };
 
   // Render functions
- 
+  const renderWordByWordTranscript = () => {
+    if (!transcriptWords.length) {
+        return renderSegmentBasedTranscript();
+    }
+    
+    const currentSegmentData = getCurrentSegment();
+    // Show NEXT segment (current + 1) in purple as you had it (this is correct for your transcript)
+    const nextSegmentData = currentSegmentData && currentSegmentData.index + 1 < transcript.length ? 
+        { segment: transcript[currentSegmentData.index + 1], index: currentSegmentData.index + 1 } : null;
+    
+    return (
+        <div style={{ 
+        fontSize: '2.2rem', 
+        lineHeight: '2.8', 
+        direction: 'rtl',
+        fontFamily: 'Arial, sans-serif',
+        padding: '30px 30px 100px 30px',
+        textAlign: 'justify'
+        }}>
+        {transcriptWords.map((word, index) => {
+            const isInNextSegment = nextSegmentData && word.segmentIndex === nextSegmentData.index;
+            const isPastSegment = currentSegmentData && word.segmentIndex <= currentSegmentData.index;
+            
+            return (
+            <span
+                key={`${word.timestamp}-${index}`}
+                // Fixed: Set ref on the FIRST word of the purple segment for auto-scroll
+                ref={isInNextSegment && index === transcriptWords.findIndex(w => w.segmentIndex === nextSegmentData.index) ? currentWordRef : null}
+                style={{
+                cursor: 'pointer',
+                backgroundColor: 'transparent',
+                color: isPastSegment ? '#9ca3af' : // Past segments (including current) gray
+                        isInNextSegment ? '#8b5cf6' : // Next segment purple (actually current audio)
+                        '#333', // Future segments black
+                fontWeight: isInNextSegment ? '600' : '400',
+                transition: 'all 0.15s ease',
+                opacity: isPastSegment ? '0.7' : '1',
+                padding: '1px 2px',
+                borderRadius: '2px',
+                display: 'inline'
+                }}
+                onMouseEnter={(e) => {
+                if (!isInNextSegment) {
+                    e.currentTarget.style.backgroundColor = '#f8f9fa';
+                }
+                }}
+                onMouseLeave={(e) => {
+                if (!isInNextSegment) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                }
+                }}
+                onClick={() => handleIndividualWordClick(word, word.timestamp)}
+                onDoubleClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleWordDoubleClick(word);
+                }}
+                title={`"${word.text}" - Double-click to add to flashcards`}
+            >
+                {word.text}
+                {index < transcriptWords.length - 1 ? ' ' : ''}
+            </span>
+            );
+        })}
+        </div>
+    );
+    };
+  // STEP 6: Add these render functions to your MainApp component:
 
   // Deck list with integrated Manage button
   const renderDeckList = () => {
@@ -3509,7 +4603,72 @@ function MainApp({ user }: { user: any }) {
     </div>
    );
   };
-
+  const renderSegmentBasedTranscript = () => {
+    if (!transcript.length) return null;
+    const currentData = getCurrentSegment();
+    // Show NEXT segment (current + 1) in purple as requested
+    const nextData = currentData && currentData.index + 1 < transcript.length ? 
+      { segment: transcript[currentData.index + 1], index: currentData.index + 1 } : null;
+    
+    return (
+      <div style={{ 
+        fontSize: '2.2rem', 
+        lineHeight: '2.8', 
+        direction: 'rtl',
+        fontFamily: 'Arial, sans-serif',
+        padding: '30px 30px 100px 30px',
+        textAlign: 'justify'
+      }}>
+        {transcript.map((segment, index) => {
+          const isNextSegment = nextData && nextData.index === index;
+          const isPastSegment = currentData && index <= currentData.index;
+          const words = segment.text.split(/\s+/);
+          
+          return (
+            <span
+              key={`${segment.start}-${index}`}
+              ref={isNextSegment ? currentWordRef : null}
+              style={{
+                backgroundColor: 'transparent',
+                color: isPastSegment ? '#9ca3af' : // Past segments (including current) gray
+                       isNextSegment ? '#8b5cf6' : // Next segment purple
+                       '#333', // Future segments black
+                fontWeight: isNextSegment ? '600' : '400',
+                transition: 'all 0.15s ease',
+                opacity: isPastSegment ? '0.7' : '1',
+                padding: '0px',
+                borderRadius: '0px',
+                display: 'inline',
+                cursor: 'pointer'
+              }}
+              onClick={() => seekTo(segment.start)}
+            >
+              {words.map((word, wordIndex) => (
+                <span
+                  key={`${word}-${wordIndex}`}
+                  style={{ cursor: 'pointer' }}
+                  onDoubleClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const wordObj = {
+                      text: word,
+                      timestamp: segment.start,
+                      segmentText: segment.text,
+                      segmentIndex: index
+                    };
+                    handleWordDoubleClick(wordObj);
+                  }}
+                >
+                  {word}
+                  {wordIndex < words.length - 1 ? ' ' : ''}
+                </span>
+              ))}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderCardModal = () => {
     if (!showCardModal) return null;
@@ -5705,6 +6864,26 @@ function MainApp({ user }: { user: any }) {
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'watch':
+        // Watch tab content is now handled by persistent container
+        return (
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '60px', 
+            borderRadius: '12px', 
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+            textAlign: 'center',
+            border: '1px solid #f3f4f6'
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '16px', opacity: '0.5' }}>📺</div>
+            <h3 style={{ color: '#6b7280', marginBottom: '8px', fontSize: '18px' }}>
+              Load a video to start watching
+            </h3>
+            <p style={{ color: '#9ca3af', fontSize: '14px' }}>
+              Paste a YouTube URL above to begin learning Arabic
+            </p>
+          </div>
+        );
       case 'settings':
         return renderSettingsPage();
       case 'my-cards':
@@ -6444,7 +7623,13 @@ function MainApp({ user }: { user: any }) {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  // Save video state before switching tabs
+                  if (activeTab === 'watch') {
+                    saveCurrentVideoState();
+                  }
+                  setActiveTab(tab.id);
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -6468,30 +7653,32 @@ function MainApp({ user }: { user: any }) {
       </div>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px' }}>
-         {/* Video Player Component */}
-         {activeTab === 'watch' && (
-            <VideoPlayer
-              user={user}
-              currentDeck={currentDeck}
-              onCardAdded={setCardMessage}
-              onDeckCreated={(deck) => {
-                setCurrentDeck(deck);
-                if (!userDecks.find(d => d.id === deck.id)) {
-                  setUserDecks(prev => [...prev, deck]);
-                }
-              }}
-              userSettings={userSettings}
-              onSettingsUpdate={setUserSettings}
-             // isTabVisible={activeTab === 'watch'}
-            />
-          )}
+        {/* Persistent YouTube Player Container */}
+        {currentVideoId && (
+          <div style={{
+            position: activeTab === 'watch' ? 'relative' : 'fixed',
+            top: activeTab === 'watch' ? '0' : '-9999px',
+            left: activeTab === 'watch' ? '0' : '-9999px',
+            width: activeTab === 'watch' ? '100%' : '1px',
+            height: activeTab === 'watch' ? 'auto' : '1px',
+            zIndex: activeTab === 'watch' ? 1 : -1,
+            overflow: 'hidden'
+          }}>
+            {renderWatchTabContent()}
+          </div>
+        )}
         
         {/* Regular Tab Content */}
         <div style={{ display: activeTab === 'watch' ? 'none' : 'block' }}>
           {renderTabContent()}
         </div>
         
+        {/* Show watch tab content when active */}
+        {activeTab === 'watch' && !currentVideoId && renderWatchTabContent()}
+        
         {renderCardModal()}
+        {renderBackgroundVideoControls()}
+        {renderBackgroundStatusIndicator()}
         {renderImmersionTimerWidget()}
         {renderProfileModal()} 
         
