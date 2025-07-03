@@ -24,7 +24,7 @@ interface VideoPlayerProps {
   onDeckCreated: (deck: any) => void; // Function to call when new deck is created - sends deck info up to parent
   userSettings: any; // User's app settings like auto-play preferences
   onSettingsUpdate: (settings: any) => void; // Function to call when settings change - sends updated settings up to parent
-  isTabVisible: boolean; // Whether the current tab is visible (for tracking focused vs background time)
+  //isTabVisible: boolean; // Whether the current tab is visible (for tracking focused vs background time)
 }
 
 // Declare global types for YouTube API so TypeScript understands them
@@ -42,7 +42,7 @@ export function VideoPlayer({
   onDeckCreated, 
   userSettings, 
   onSettingsUpdate,
-  isTabVisible 
+  //isTabVisible 
 }: VideoPlayerProps) {
   
   // ==================== VIDEO STATE VARIABLES ====================
@@ -55,6 +55,8 @@ export function VideoPlayer({
   const [videoUrl, setVideoUrl] = useState(''); // Remember the YouTube URL that user typed in
   const [currentVideoId, setCurrentVideoId] = useState(''); // Remember the extracted video ID from the URL
   const [currentVideoTitle, setCurrentVideoTitle] = useState(''); // Remember the video's title from YouTube
+  const [isTabVisible, setIsTabVisible] = useState(true);
+
   
   // ==================== TRANSCRIPT STATE VARIABLES ====================
   // These remember transcript/captions information
@@ -269,9 +271,14 @@ export function VideoPlayer({
 
   // FORMAT TIME - Convert seconds to MM:SS format
   const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60); // Calculate minutes
-    const secs = Math.floor(seconds % 60); // Calculate remaining seconds
-    return `${mins}:${secs.toString().padStart(2, '0')}`; // Format as MM:SS
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
   // ==================== CARD MANAGEMENT FUNCTIONS ====================
@@ -293,7 +300,9 @@ export function VideoPlayer({
       console.error('❌ Error creating deck:', error);
     }
   };
-
+  const cleanArabicWord = (word: string): string => {
+    return word.replace(/[^\u0600-\u06FF\u0750-\u077F]/g, '').trim();
+  };
   // ADD WORD TO DECK - Save Arabic word as vocabulary card
   const handleWordClick = async (word: string, timestamp: number) => {
     if (!user?.id || !currentDeck) { // Check if user logged in and deck selected
@@ -371,6 +380,68 @@ export function VideoPlayer({
     
     return contextSegments.join(' ').trim(); // Join segments into context sentence
   };
+  const processTranscriptWords = (transcript: any[]) => {
+    const words: any[] = [];
+    transcript.forEach((segment) => {
+      const segmentWords = segment.text.split(/\s+/).filter((word: string) => word.trim());
+      const segmentDuration = segment.duration || 2;
+      const timePerWord = segmentDuration / segmentWords.length;
+      
+      segmentWords.forEach((word: string, index: number) => {
+        words.push({
+          text: word,
+          timestamp: segment.start + (index * timePerWord),
+          segmentStart: segment.start,
+          segmentText: segment.text,
+          segmentIndex: transcript.indexOf(segment)
+        });
+      });
+    });
+    return words;
+  };
+
+  const getExpandedContext = (word: any, transcriptWords: any[], wordIndex: number) => {
+    const startIndex = Math.max(0, wordIndex - 10);
+    const endIndex = Math.min(transcriptWords.length - 1, wordIndex + 10);
+    const contextWords = transcriptWords.slice(startIndex, endIndex + 1);
+    return contextWords.map(w => w.text).join(' ');
+  };
+
+  const createMCDContext = (context: string, targetWord: string) => {
+    if (!context || !targetWord) return context;
+    
+    let cleanedContext = context;
+    cleanedContext = cleanedContext.replace(/^Video:\s*.*?\s*-?\s*Context:\s*/i, '');
+    cleanedContext = cleanedContext.replace(/^Surah\s+[^(]+\s*\([^)]+\),\s*Verse\s+\d+:\s*/i, '');
+    cleanedContext = cleanedContext.trim();
+    
+    const cleanTarget = cleanArabicWord(targetWord).trim();
+    if (!cleanTarget) return cleanedContext;
+    
+    const escapedWord = cleanTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const patterns = [
+      new RegExp(`\\b${escapedWord}\\b`, 'gi'),
+      new RegExp(`${escapedWord}`, 'gi'),
+      new RegExp(`\\s${escapedWord}\\s`, 'gi'),
+      new RegExp(`${escapedWord}[\\u064B-\\u065F]*`, 'gi')
+    ];
+    
+    let result = cleanedContext;
+    
+    for (const pattern of patterns) {
+      const testResult = result.replace(pattern, ' [...] ');
+      if (testResult !== result) {
+        result = testResult;
+        break;
+      }
+    }
+    
+    result = result.replace(/\s+\[\.\.\.\]\s+/g, ' [...] ');
+    result = result.replace(/^\s+|\s+$/g, '');
+    
+    return result;
+  };
+
 
   // ==================== IMMERSION TRACKING FUNCTIONS ====================
   
@@ -649,6 +720,19 @@ export function VideoPlayer({
       };
     });
   }, [isTabVisible]); // Re-run when tab visibility changes
+  //  visibility change effect inside VideoPlayer:
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsTabVisible(isVisible);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // CLEANUP ON UNMOUNT - Clean up timers when component is removed
   useEffect(() => {
