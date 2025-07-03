@@ -2273,6 +2273,21 @@ function MainApp({ user }: { user: any }) {
         )}
       </div>
     );
+    // ✅ KEEP these helper functions that are used by other components:
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  const cleanArabicWord = (word: string): string => {
+    return word.replace(/[^\u0600-\u06FF\u0750-\u077F]/g, '').trim();
+  };
   // 2. ENHANCED QURAN TRANSLATION CALL WITH CACHING
   const handleQuranWordDoubleClick = async (word: string, surahNumber: number, verseNumber: number, wordPosition: number, verseText: string) => {
     if (!user?.id) {
