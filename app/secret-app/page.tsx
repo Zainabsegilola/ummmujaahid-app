@@ -6482,7 +6482,7 @@ function MainApp({ user }: { user: any }) {
               }}
               userSettings={userSettings}
               onSettingsUpdate={setUserSettings}
-              isTabVisible={activeTab === 'watch'}
+             // isTabVisible={activeTab === 'watch'}
             />
           )}
         
