@@ -183,28 +183,8 @@ function MainApp({ user }: { user: any }) {
     current_video_timestamp: 0,
     video_keep_playing_background: true
   });
-  const [isVideoPlayingBackground, setIsVideoPlayingBackground] = useState(false);
-  const [backgroundVideoInfo, setBackgroundVideoInfo] = useState(null);
-  const [showBackgroundControls, setShowBackgroundControls] = useState(false);
-  const [backgroundVideoError, setBackgroundVideoError] = useState('');
-  const [savedVideoState, setSavedVideoState] = useState(null);
-  const [videoTimestampInterval, setVideoTimestampInterval] = useState(null);
-  const [previousTab, setPreviousTab] = useState('my-cards'); // Track which tab to return to
-   // Immersion tracking states
-  const [immersionSession, setImmersionSession] = useState({
-    isActive: false,
-    startTime: null,
-    totalSeconds: 0,
-    focusedSeconds: 0,
-    freeflowSeconds: 0,
-    lastSaveTime: 0,
-    currentMode: 'focused' // 'focused' or 'freeflow'
-  });
-  
-  const [isTabVisible, setIsTabVisible] = useState(true);
-  const immersionIntervalRef = useRef(null);
-  const saveIntervalRef = useRef(null);
 
+  
   //profile states
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [userStats, setUserStats] = useState({
@@ -222,27 +202,6 @@ function MainApp({ user }: { user: any }) {
       });
     }
   }, [showProfileModal, user?.id]);
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const isVisible = !document.hidden;
-      setIsTabVisible(isVisible);
-      
-      // Update immersion mode based on visibility
-      if (immersionSession.isActive && isPlaying) {
-        const newMode = isVisible ? 'focused' : 'freeflow';
-        setImmersionSession(prev => ({
-          ...prev,
-          currentMode: newMode
-        }));
-        console.log(`🔄 Switched to ${newMode} mode (tab ${isVisible ? 'visible' : 'hidden'})`);
-      }
-    };
-  
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [immersionSession.isActive, isPlaying]);
-
-  
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [currentPlayingVerse, setCurrentPlayingVerse] = useState<number | null>(null);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
@@ -308,17 +267,7 @@ function MainApp({ user }: { user: any }) {
       console.error('Error loading user settings:', error);
     }
   };
-  const saveCurrentVideoState = async () => {
-    if (!user?.id || !currentVideoId || !player) return;
-    
-    try {
-      const currentTime = player.getCurrentTime();
-      await saveVideoState(user.id, videoUrl, currentTime);
-      console.log('✅ Video state saved:', { videoUrl, currentTime });
-    } catch (error) {
-      console.error('❌ Failed to save video state:', error);
-    }
-  };
+
   const renderProfileModal = () => {
     if (!showProfileModal) return null;
   
@@ -686,34 +635,6 @@ function MainApp({ user }: { user: any }) {
         </div>
       </div>
     );
-  };
-
-
-  const clearCurrentVideoState = async () => {
-    if (!user?.id) return;
-    
-    try {
-      // Stop immersion session before clearing video
-      await stopImmersionSession();
-      
-      await clearVideoState(user.id);
-      setSavedVideoState(null);
-      setVideoUrl('');
-      setCurrentVideoId('');
-      setCurrentVideoTitle('');
-      setTranscript([]);
-      
-      if (player) {
-        player.stopVideo();
-      }
-      
-      setCardMessage('✅ Video cleared successfully');
-      setTimeout(() => setCardMessage(''), 3000);
-    } catch (error) {
-      console.error('❌ Failed to clear video state:', error);
-      setCardMessage('❌ Failed to clear video');
-      setTimeout(() => setCardMessage(''), 3000);
-    }
   };
 
   const saveUserSettings = async (newSettings) => {
@@ -2820,18 +2741,7 @@ function MainApp({ user }: { user: any }) {
     }
   }, [user?.id]);
 
-  
-  useEffect(() => {
-    console.log('🔍 Checking initialization conditions:', {
-      currentVideoId: currentVideoId,
-      windowYT: !!window.YT
-    });
-    
-    if (currentVideoId && window.YT) {
-      console.log('🎯 Both conditions met, calling initializePlayer');
-      setTimeout(() => initializePlayer(), 500);
-    }
-  }, [currentVideoId]);
+
   useEffect(() => {
     if (showProfileModal && user?.id) {
       loadCompleteUserData();
@@ -6833,13 +6743,7 @@ function MainApp({ user }: { user: any }) {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => {
-                  // Save video state before switching tabs
-                  if (activeTab === 'watch') {
-                    saveCurrentVideoState();
-                  }
-                  setActiveTab(tab.id);
-                }}
+                onClick={() => setActiveTab(tab.id)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -6887,8 +6791,6 @@ function MainApp({ user }: { user: any }) {
         </div>
         
         {renderCardModal()}
-        {renderBackgroundVideoControls()}
-        {renderBackgroundStatusIndicator()}
         {renderImmersionTimerWidget()}
         {renderProfileModal()} 
         
