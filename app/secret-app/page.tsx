@@ -252,16 +252,6 @@ function MainApp({ user }: { user: any }) {
       const { data, error } = await getUserSettings(user.id);
       if (!error && data) {
         setUserSettings(data);
-        
-        // Load saved video state
-        if (data.current_video_url) {
-          setSavedVideoState({
-            url: data.current_video_url,
-            timestamp: data.current_video_timestamp || 0
-          });
-          setVideoUrl(data.current_video_url);
-          setCurrentVideoId(extractVideoId(data.current_video_url));
-        }
       }
     } catch (error) {
       console.error('Error loading user settings:', error);
@@ -2877,7 +2867,7 @@ function MainApp({ user }: { user: any }) {
   // Card functions
   const handleIndividualWordClick = (word: any, timestamp: number) => {
     // Use the segment start time, not the calculated word timestamp
-    seekTo(word.segmentStart);
+   // seekTo(word.segmentStart);
     };
   const handleWordDoubleClick = async (word) => {
     if (!user?.id) {
