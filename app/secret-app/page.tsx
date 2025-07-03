@@ -271,20 +271,6 @@ function MainApp({ user }: { user: any }) {
   const renderProfileModal = () => {
     if (!showProfileModal) return null;
   
-    // Helper function to format seconds into readable time
-    const formatTime = (seconds) => {
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      
-      if (hours > 0) {
-        return `${hours}h ${minutes}m`;
-      } else if (minutes > 0) {
-        return `${minutes}m`;
-      } else {
-        return `${seconds}s`;
-      }
-    };
-  
     const { profile, stats, streaks } = userProfileData;
   
     return (
@@ -665,71 +651,7 @@ function MainApp({ user }: { user: any }) {
   };
 
   
-  const saveImmersionProgress = async (totalSeconds, isFinalSave = false) => {
-    if (!user?.id || !currentVideoId || !immersionSession.isActive) return;
-  
-    const session = immersionSession;
-    const timeToSave = session.totalSeconds - session.lastSaveTime;
-    
-    if (timeToSave <= 0 && !isFinalSave) return;
-  
-    try {
-      console.log(`💾 Saving ${timeToSave}s (${session.focusedSeconds}f + ${session.freeflowSeconds}ff)`);
-  
-      // Calculate time breakdown since last save
-      const focusedToSave = Math.max(0, session.focusedSeconds - session.lastSaveTime);
-      const freeflowToSave = Math.max(0, session.freeflowSeconds - session.lastSaveTime);
-  
-      // Update daily stats
-      const dailyResult = await updateDailyImmersionStats(user.id, focusedToSave, freeflowToSave);
-      if (dailyResult.error) {
-        console.error('❌ Failed to update daily stats:', dailyResult.error);
-      } else {
-        console.log('✅ Daily stats updated');
-      }
-  
-      // Save video timestamp
-      if (player && player.getCurrentTime) {
-        const currentTime = player.getCurrentTime();
-        const videoResult = await saveVideoState(user.id, videoUrl, currentTime);
-        if (videoResult.success) {
-          console.log('✅ Video state saved');
-        } else {
-          console.error('❌ Failed to save video state:', videoResult.error);
-        }
-      }
-  
-      // If final save, create session record
-      if (isFinalSave) {
-        const sessionResult = await saveImmersionSession(
-          user.id,
-          currentVideoId,
-          currentVideoTitle || 'Unknown Video',
-          session.startTime,
-          new Date(),
-          session.focusedSeconds,
-          session.freeflowSeconds
-        );
-        
-        if (sessionResult.error) {
-          console.error('❌ Failed to save session:', sessionResult.error);
-        } else {
-          console.log('✅ Session record saved');
-        }
-      }
-  
-      // Update last save time
-      setImmersionSession(prev => ({
-        ...prev,
-        lastSaveTime: prev.totalSeconds
-      }));
-  
-    } catch (error) {
-      console.error('❌ Error saving immersion progress:', error);
-    }
-  };
-
-
+ 
     
     // Load cards for a specific deck
   const loadDeckCards = async (deck) => {
@@ -2948,7 +2870,7 @@ function MainApp({ user }: { user: any }) {
     }
   };
 
-  // Video functions
+  
 
   
 
