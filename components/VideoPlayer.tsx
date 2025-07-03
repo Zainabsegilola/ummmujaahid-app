@@ -2,18 +2,52 @@
 
 'use client'; // Tell Next.js this code runs in the user's web browser, not on the server computer
 import React, { useState, useEffect, useRef } from 'react'; // Get React library and tools for remembering information, running effects, and referencing DOM elements
+import { // Import all database functions we need for video functionality
+  createOrGetDeck, 
+  addCardToDeck,
+  saveVideoState,
+  getVideoState,
+  clearVideoState,
+  updateVideoBackgroundSetting,
+  updateDailyImmersionStats,
+  saveImmersionSession,
+  loadUserImmersionStats,
+  updateUserSettings,
+  getUserSettings
+} from '@/lib/database';
 
 // Define what information this component needs from its parent
 interface VideoPlayerProps {
-  user: any; // User object containing account information
-  currentDeck: any; // Currently selected deck for saving cards
-  onCardAdded: (message: string) => void; // Function to call when card is successfully added
-  onDeckCreated: (deck: any) => void; // Function to call when new deck is created
+  user: any; // User object containing account information like ID and email
+  currentDeck: any; // Currently selected deck for saving vocabulary cards
+  onCardAdded: (message: string) => void; // Function to call when card is successfully added - sends message up to parent
+  onDeckCreated: (deck: any) => void; // Function to call when new deck is created - sends deck info up to parent
+  userSettings: any; // User's app settings like auto-play preferences
+  onSettingsUpdate: (settings: any) => void; // Function to call when settings change - sends updated settings up to parent
+  isTabVisible: boolean; // Whether the current tab is visible (for tracking focused vs background time)
 }
 
-export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: VideoPlayerProps) {
+// Declare global types for YouTube API so TypeScript understands them
+declare global {
+  interface Window {
+    YT: any; // YouTube player API object
+    onYouTubeIframeAPIReady: () => void; // Function YouTube calls when API is ready
+  }
+}
+
+export function VideoPlayer({ 
+  user, 
+  currentDeck, 
+  onCardAdded, 
+  onDeckCreated, 
+  userSettings, 
+  onSettingsUpdate,
+  isTabVisible 
+}: VideoPlayerProps) {
   
-  // VIDEO STATE VARIABLES - Track all video-related information
+  // ==================== VIDEO STATE VARIABLES ====================
+  // These are like memory containers that remember video information
+  
   const [player, setPlayer] = useState<any>(null); // Remember the YouTube player object that controls video playback
   const [isPlaying, setIsPlaying] = useState(false); // Remember whether video is currently playing (true=playing, false=paused)
   const [currentTime, setCurrentTime] = useState(0); // Remember current playback position in seconds
@@ -22,21 +56,50 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
   const [currentVideoId, setCurrentVideoId] = useState(''); // Remember the extracted video ID from the URL
   const [currentVideoTitle, setCurrentVideoTitle] = useState(''); // Remember the video's title from YouTube
   
-  // TRANSCRIPT STATE VARIABLES - Track video transcript/captions
+  // ==================== TRANSCRIPT STATE VARIABLES ====================
+  // These remember transcript/captions information
+  
   const [transcript, setTranscript] = useState<any[]>([]); // Remember all the transcript segments (text with timestamps)
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false); // Remember whether we're currently downloading transcript
   const [transcriptError, setTranscriptError] = useState(''); // Remember any error message from transcript loading
   
-  // LOADING AND MESSAGE STATES
+  // ==================== BACKGROUND VIDEO STATE ====================
+  // These handle video playing in background when user switches tabs
+  
+  const [isVideoPlayingBackground, setIsVideoPlayingBackground] = useState(false); // Remember if video is playing while user is on different tab
+  const [showBackgroundControls, setShowBackgroundControls] = useState(false); // Remember whether to show floating video controls
+  const [backgroundVideoInfo, setBackgroundVideoInfo] = useState<any>(null); // Remember info about video playing in background
+  
+  // ==================== IMMERSION TRACKING STATE ====================
+  // These track how much time user spends watching Arabic content
+  
+  const [immersionSession, setImmersionSession] = useState<any>({ // Remember current study session details
+    isActive: false, // Whether we're currently tracking time
+    startTime: null, // When session started
+    totalSeconds: 0, // Total time spent in session
+    focusedSeconds: 0, // Time spent with tab visible (focused study)
+    freeflowSeconds: 0, // Time spent with tab hidden (background listening)
+    lastSaveTime: 0, // When we last saved progress to database
+    currentMode: 'focused' // Whether currently 'focused' (tab visible) or 'freeflow' (tab hidden)
+  });
+  
+  // ==================== LOADING AND MESSAGE STATES ====================
+  
   const [isAddingCard, setIsAddingCard] = useState(false); // Remember whether we're currently saving a card to database
   const [cardMessage, setCardMessage] = useState(''); // Remember success/error message to show user about card operations
   
-  // REFS FOR DOM ELEMENTS - References to HTML elements we need to control
+  // ==================== REFS FOR DOM ELEMENTS ====================
+  // These are like pointers to HTML elements we need to control
+  
   const playerRef = useRef<HTMLDivElement>(null); // Reference to div where YouTube player will be embedded
   const intervalRef = useRef<NodeJS.Timeout | null>(null); // Reference to timer that updates current time every 100ms
   const transcriptRef = useRef<HTMLDivElement>(null); // Reference to transcript display container
   const currentWordRef = useRef<HTMLSpanElement>(null); // Reference to currently highlighted word in transcript
+  const immersionIntervalRef = useRef<NodeJS.Timeout | null>(null); // Reference to timer that tracks study time every second
+  const previousTab = useRef<string>('watch'); // Remember which tab user was on before switching
 
+  // ==================== YOUTUBE API FUNCTIONS ====================
+  
   // LOAD YOUTUBE API - Download and initialize YouTube's video player library
   const loadYouTubeAPI = () => {
     console.log('🔄 Loading YouTube API...'); // Log to browser console for debugging
@@ -120,44 +183,17 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
     if (isNowPlaying && transcript.length === 0) { // If video started playing and we don't have transcript
       fetchTranscript(currentVideoId); // Download transcript for this video
     }
+    
+    // Start immersion tracking when video starts playing
+    if (isNowPlaying && user?.id && currentVideoId) {
+      startImmersionSession(); // Begin tracking study time
+    } else if (!isNowPlaying && immersionSession.isActive) {
+      stopImmersionSession(); // Stop tracking when video pauses
+    }
   };
 
-  // TIME TRACKING EFFECT - Update current time while video plays
-  useEffect(() => {
-    if (isPlaying && player) { // Only track time when video is playing and player exists
-      intervalRef.current = setInterval(() => { // Set up timer that runs every 100ms
-        if (player?.getCurrentTime) { // Check if player method exists
-          const time = player.getCurrentTime(); // Get current playback position
-          setCurrentTime(time); // Update time in memory
-        }
-      }, 100); // Run every 100 milliseconds for smooth time updates
-    } else {
-      if (intervalRef.current) { // If timer is running but video stopped
-        clearInterval(intervalRef.current); // Stop the timer
-        intervalRef.current = null; // Clear timer reference
-      }
-    }
-
-    return () => { // Cleanup function when component unmounts
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current); // Stop timer to prevent memory leaks
-      }
-    };
-  }, [isPlaying, player]); // Re-run this effect when playing state or player changes
-
-  // LOAD YOUTUBE API ON MOUNT - Load API when component first appears
-  useEffect(() => {
-    loadYouTubeAPI(); // Download YouTube API library
-  }, []); // Empty dependency array means run once when component mounts
-
-  // INITIALIZE PLAYER WHEN READY - Create player when we have video ID and API
-  useEffect(() => {
-    if (currentVideoId && window.YT) { // Check if we have video ID and API is loaded
-      console.log('🎯 Both conditions met, calling initializePlayer');
-      setTimeout(() => initializePlayer(), 500); // Wait 500ms then create player
-    }
-  }, [currentVideoId]); // Re-run when video ID changes
-
+  // ==================== TRANSCRIPT FUNCTIONS ====================
+  
   // EXTRACT VIDEO ID FROM URL - Get the 11-character video ID from YouTube URL
   const extractVideoId = (url: string): string => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/; // Pattern to match YouTube URLs
@@ -200,6 +236,8 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
     }
   };
 
+  // ==================== VIDEO CONTROL FUNCTIONS ====================
+  
   // LOAD NEW VIDEO - Process new YouTube URL entered by user
   const loadNewVideo = async () => {
     const videoId = extractVideoId(videoUrl); // Get video ID from URL
@@ -218,12 +256,31 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
     setDuration(0); // Reset duration
   };
 
+  // SEEK TO TIMESTAMP - Jump video to specific time
+  const seekTo = (seconds: number) => {
+    if (player && player.seekTo) { // Check if player and method exist
+      try {
+        player.seekTo(seconds, true); // Jump to time (true = allow seeking to unloaded parts)
+      } catch (error) {
+        console.error('Error seeking:', error);
+      }
+    }
+  };
+
+  // FORMAT TIME - Convert seconds to MM:SS format
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60); // Calculate minutes
+    const secs = Math.floor(seconds % 60); // Calculate remaining seconds
+    return `${mins}:${secs.toString().padStart(2, '0')}`; // Format as MM:SS
+  };
+
+  // ==================== CARD MANAGEMENT FUNCTIONS ====================
+  
   // CREATE OR GET DECK - Create deck for saving vocabulary cards
   const handleCreateOrGetDeck = async (deckName: string, videoId?: string) => {
     if (!user?.id) return; // Exit if user not logged in
     
     try {
-      const { createOrGetDeck } = await import('@/lib/database'); // Import database function
       const { data, error } = await createOrGetDeck(user.id, deckName, currentVideoTitle); // Create or find existing deck
       
       if (!error && data) { // Check if operation succeeded
@@ -256,8 +313,6 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
     try {
       // Get context sentence from transcript
       const context = getContextFromTranscript(timestamp, word);
-      
-      const { addCardToDeck, getContextSentence } = await import('@/lib/database'); // Import database functions
       
       // Add card to database
       const { data, error } = await addCardToDeck(
@@ -317,28 +372,301 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
     return contextSegments.join(' ').trim(); // Join segments into context sentence
   };
 
-  // SEEK TO TIMESTAMP - Jump video to specific time
-  const seekTo = (seconds: number) => {
-    if (player && player.seekTo) { // Check if player and method exist
-      try {
-        player.seekTo(seconds, true); // Jump to time (true = allow seeking to unloaded parts)
-      } catch (error) {
-        console.error('Error seeking:', error);
-      }
+  // ==================== IMMERSION TRACKING FUNCTIONS ====================
+  
+  // START IMMERSION SESSION - Begin tracking study time
+  const startImmersionSession = () => {
+    console.log('🎯 Starting new immersion session');
+    
+    if (!user?.id || !currentVideoId) { // Check if we have required info
+      console.log('❌ Cannot start session - missing user or video');
+      return;
+    }
+  
+    // Stop any existing session first
+    stopImmersionSession();
+  
+    const now = new Date(); // Get current time
+    setImmersionSession({ // Set up new session
+      isActive: true, // Mark as active
+      startTime: now, // Record start time
+      totalSeconds: 0, // Reset counters
+      focusedSeconds: 0,
+      freeflowSeconds: 0,
+      lastSaveTime: 0,
+      currentMode: isTabVisible ? 'focused' : 'freeflow' // Set mode based on tab visibility
+    });
+  
+    // Start the main timer (every second)
+    immersionIntervalRef.current = setInterval(() => {
+      setImmersionSession(prev => {
+        if (!prev.isActive) return prev; // Exit if session ended
+  
+        const newTotal = prev.totalSeconds + 1; // Increment total time
+        const newFocused = prev.currentMode === 'focused' ? prev.focusedSeconds + 1 : prev.focusedSeconds; // Increment focused time if in focused mode
+        const newFreeflow = prev.currentMode === 'freeflow' ? prev.freeflowSeconds + 1 : prev.freeflowSeconds; // Increment freeflow time if in freeflow mode
+  
+        const updated = { // Create updated session object
+          ...prev,
+          totalSeconds: newTotal,
+          focusedSeconds: newFocused,
+          freeflowSeconds: newFreeflow
+        };
+  
+        // Save to database every 30 seconds
+        if (newTotal > 0 && newTotal % 30 === 0 && newTotal !== prev.lastSaveTime) {
+          console.log(`💾 Auto-saving session at ${newTotal} seconds`);
+          saveCurrentSession(updated); // Save progress to database
+          updated.lastSaveTime = newTotal; // Record when we last saved
+        }
+  
+        return updated;
+      });
+    }, 1000); // Run every 1000 milliseconds (1 second)
+  };
+
+  // STOP IMMERSION SESSION - End tracking and save final results
+  const stopImmersionSession = async () => {
+    if (!immersionSession.isActive) return; // Exit if no active session
+    
+    console.log('🛑 Stopping immersion session');
+    
+    // Clear the timer
+    if (immersionIntervalRef.current) {
+      clearInterval(immersionIntervalRef.current); // Stop the timer
+      immersionIntervalRef.current = null; // Clear reference
+    }
+    
+    // Save final session data
+    await saveCurrentSession(immersionSession);
+    
+    // Reset session state
+    setImmersionSession({
+      isActive: false,
+      startTime: null,
+      totalSeconds: 0,
+      focusedSeconds: 0,
+      freeflowSeconds: 0,
+      lastSaveTime: 0,
+      currentMode: 'focused'
+    });
+  };
+
+  // SAVE CURRENT SESSION - Save session data to database
+  const saveCurrentSession = async (sessionData: any) => {
+    if (!user?.id || !currentVideoId || sessionData.totalSeconds === 0) return; // Exit if missing required data
+    
+    try {
+      await saveImmersionSession( // Save to database
+        user.id,
+        currentVideoId,
+        sessionData.totalSeconds,
+        sessionData.focusedSeconds,
+        sessionData.freeflowSeconds,
+        'video' // Session type
+      );
+      
+      console.log('✅ Session saved successfully');
+    } catch (error) {
+      console.error('❌ Error saving session:', error);
     }
   };
 
-  // FORMAT TIME - Convert seconds to MM:SS format
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60); // Calculate minutes
-    const secs = Math.floor(seconds % 60); // Calculate remaining seconds
-    return `${mins}:${secs.toString().padStart(2, '0')}`; // Format as MM:SS
+  // ==================== BACKGROUND VIDEO FUNCTIONS ====================
+  
+  // RENDER BACKGROUND VIDEO CONTROLS - Show floating controls when video plays in background
+  const renderBackgroundVideoControls = () => {
+    if (!showBackgroundControls || !backgroundVideoInfo) return null; // Don't show if not needed
+  
+    return (
+      <div style={{ // Floating control panel
+        position: 'fixed', // Stay in same place when page scrolls
+        bottom: '20px', // 20px from bottom of screen
+        right: '20px', // 20px from right of screen
+        backgroundColor: 'white', // White background
+        padding: '12px 16px', // Comfortable padding
+        borderRadius: '12px', // Rounded corners
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)', // Drop shadow
+        border: '2px solid #8b5cf6', // Purple border
+        zIndex: 1000, // Show above other elements
+        minWidth: '280px', // Minimum width
+        maxWidth: '350px' // Maximum width
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '600', color: '#8b5cf6' }}>
+            🎵 Playing in Background
+          </div>
+          <button
+            onClick={() => { // Stop background playback when X clicked
+              if (player) {
+                player.pauseVideo(); // Pause the video
+              }
+              setShowBackgroundControls(false); // Hide controls
+              setIsVideoPlayingBackground(false); // Mark as not playing in background
+              setBackgroundVideoInfo(null); // Clear background info
+            }}
+            style={{
+              backgroundColor: 'transparent', // No background
+              border: 'none', // No border
+              color: '#6b7280', // Gray color
+              cursor: 'pointer', // Pointer cursor
+              fontSize: '16px', // Text size
+              padding: '2px' // Small padding
+            }}
+            title="Stop background playback"
+          >
+            ✕
+          </button>
+        </div>
+  
+        {/* Video Info */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '4px' }}>
+            {backgroundVideoInfo.title} {/* Show video title */}
+          </div>
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            {formatTime(backgroundVideoInfo.timestamp)} {/* Show current time */}
+          </div>
+        </div>
+  
+        {/* Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={() => { // Toggle play/pause
+              if (player) {
+                isPlaying ? player.pauseVideo() : player.playVideo();
+              }
+            }}
+            style={{
+              backgroundColor: '#8b5cf6', // Purple background
+              color: 'white', // White text
+              border: 'none', // No border
+              borderRadius: '6px', // Rounded corners
+              padding: '6px 12px', // Comfortable padding
+              fontSize: '12px', // Small text
+              cursor: 'pointer' // Pointer cursor
+            }}
+          >
+            {isPlaying ? '⏸️' : '▶️'} {/* Show pause or play icon */}
+          </button>
+          
+          <button
+            onClick={() => { // Bring video back to foreground
+              setShowBackgroundControls(false); // Hide background controls
+              setIsVideoPlayingBackground(false); // Mark as not in background
+              setBackgroundVideoInfo(null); // Clear background info
+              // Note: Parent component should switch back to video tab
+            }}
+            style={{
+              backgroundColor: '#f3f4f6', // Light gray background
+              color: '#374151', // Dark gray text
+              border: 'none', // No border
+              borderRadius: '6px', // Rounded corners
+              padding: '6px 12px', // Comfortable padding
+              fontSize: '12px', // Small text
+              cursor: 'pointer' // Pointer cursor
+            }}
+          >
+            📺 Show Video
+          </button>
+        </div>
+      </div>
+    );
   };
 
-  // COMPONENT RENDER - What user sees on screen
+  // ==================== REACT EFFECTS (AUTOMATIC BEHAVIORS) ====================
+  
+  // TIME TRACKING EFFECT - Update current time while video plays
+  useEffect(() => {
+    if (isPlaying && player) { // Only track time when video is playing and player exists
+      intervalRef.current = setInterval(() => { // Set up timer that runs every 100ms
+        if (player?.getCurrentTime) { // Check if player method exists
+          const time = player.getCurrentTime(); // Get current playback position
+          setCurrentTime(time); // Update time in memory
+        }
+      }, 100); // Run every 100 milliseconds for smooth time updates
+    } else {
+      if (intervalRef.current) { // If timer is running but video stopped
+        clearInterval(intervalRef.current); // Stop the timer
+        intervalRef.current = null; // Clear timer reference
+      }
+    }
+
+    return () => { // Cleanup function when component unmounts
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current); // Stop timer to prevent memory leaks
+      }
+    };
+  }, [isPlaying, player]); // Re-run this effect when playing state or player changes
+
+  // LOAD YOUTUBE API ON MOUNT - Load API when component first appears
+  useEffect(() => {
+    loadYouTubeAPI(); // Download YouTube API library
+  }, []); // Empty dependency array means run once when component mounts
+
+  // INITIALIZE PLAYER WHEN READY - Create player when we have video ID and API
+  useEffect(() => {
+    if (currentVideoId && window.YT) { // Check if we have video ID and API is loaded
+      console.log('🎯 Both conditions met, calling initializePlayer');
+      setTimeout(() => initializePlayer(), 500); // Wait 500ms then create player
+    }
+  }, [currentVideoId]); // Re-run when video ID changes
+
+  // BACKGROUND VIDEO HANDLING - Manage video when user switches tabs
+  useEffect(() => {
+    console.log('🐛 Background effect running');
+    console.log('🐛 hasPlayer:', !!player);
+    console.log('🐛 isPlaying:', isPlaying);
+    console.log('🐛 background setting:', userSettings.video_keep_playing_background);
+    console.log('🐛 currentVideoId:', currentVideoId);
+    
+    if (player && isPlaying && userSettings.video_keep_playing_background && currentVideoId) {
+      // Enable background mode
+      setIsVideoPlayingBackground(true); // Mark as playing in background
+      setShowBackgroundControls(true); // Show floating controls
+      setBackgroundVideoInfo({ // Save background video info
+        title: currentVideoTitle,
+        videoId: currentVideoId,
+        timestamp: player.getCurrentTime ? player.getCurrentTime() : 0
+      });
+      console.log('🎵 Video continues playing in background');
+    } else if (player && isPlaying && !userSettings.video_keep_playing_background) {
+      // Stop video if background play is disabled
+      player.pauseVideo(); // Pause the video
+      console.log('⏸ Video paused - background play disabled');
+    }
+  }, [player, isPlaying, userSettings.video_keep_playing_background, currentVideoId, currentVideoTitle]); // Re-run when these values change
+
+  // IMMERSION MODE TRACKING - Update session mode when tab visibility changes
+  useEffect(() => {
+    setImmersionSession(prev => {
+      if (!prev.isActive) return prev; // Don't update if session not active
+      
+      return {
+        ...prev,
+        currentMode: isTabVisible ? 'focused' : 'freeflow' // Update mode based on tab visibility
+      };
+    });
+  }, [isTabVisible]); // Re-run when tab visibility changes
+
+  // CLEANUP ON UNMOUNT - Clean up timers when component is removed
+  useEffect(() => {
+    return () => { // This runs when component is removed from page
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current); // Stop time tracking timer
+      }
+      if (immersionIntervalRef.current) {
+        clearInterval(immersionIntervalRef.current); // Stop immersion tracking timer
+      }
+    };
+  }, []); // Empty dependency array means this cleanup runs only on unmount
+
+  // ==================== COMPONENT RENDER (WHAT USER SEES) ====================
+  
   return (
     <div>
-      {/* VIDEO URL INPUT */}
+      {/* VIDEO URL INPUT SECTION */}
       <div style={{ marginBottom: '16px' }}>
         <input
           type="text" // Text input for YouTube URL
@@ -503,6 +831,24 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
         </div>
       )}
 
+      {/* NO TRANSCRIPT PLACEHOLDER */}
+      {transcript.length === 0 && !isLoadingTranscript && currentVideoId && (
+        <div style={{ 
+          display: 'flex', // Center content
+          alignItems: 'center', // Center vertically
+          justifyContent: 'center', // Center horizontally
+          height: '200px', // Fixed height
+          color: '#6b7280', // Gray text
+          flexDirection: 'column' // Stack items vertically
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📺</div>
+          <p>Load a video to see the interactive transcript</p>
+          <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', marginTop: '8px' }}>
+            Double-click Arabic words to add them to your flashcard deck
+          </p>
+        </div>
+      )}
+
       {/* CARD MESSAGE DISPLAY */}
       {cardMessage && (
         <div style={{
@@ -517,13 +863,41 @@ export function VideoPlayer({ user, currentDeck, onCardAdded, onDeckCreated }: V
           {cardMessage} {/* Display the message */}
         </div>
       )}
+
+      {/* IMMERSION SESSION DISPLAY */}
+      {immersionSession.isActive && (
+        <div style={{
+          marginTop: '16px', // Space above session info
+          padding: '12px', // Padding inside box
+          borderRadius: '6px', // Rounded corners
+          backgroundColor: '#f0f9ff', // Light blue background
+          border: '1px solid #0ea5e9', // Blue border
+          fontSize: '14px' // Readable text size
+        }}>
+          <div style={{ fontWeight: '600', color: '#0369a1', marginBottom: '4px' }}>
+            📚 Active Study Session
+          </div>
+          <div style={{ color: '#0369a1' }}>
+            Total: {Math.floor(immersionSession.totalSeconds / 60)}m {immersionSession.totalSeconds % 60}s | 
+            Focused: {Math.floor(immersionSession.focusedSeconds / 60)}m {immersionSession.focusedSeconds % 60}s | 
+            Background: {Math.floor(immersionSession.freeflowSeconds / 60)}m {immersionSession.freeflowSeconds % 60}s
+          </div>
+        </div>
+      )}
+
+      {/* BACKGROUND VIDEO CONTROLS */}
+      {renderBackgroundVideoControls()}
     </div>
   );
 }
 
-// COMPONENT SUMMARY:
-// PURPOSE: Provides complete YouTube video player with transcript display and vocabulary card creation
-// FUNCTIONALITY: Loads videos, downloads transcripts, allows clicking Arabic words to save as vocabulary cards
-// STATE MANAGEMENT: Tracks video playback, transcript data, loading states, and user interactions
-// INTEGRATION: Communicates with parent component for deck management and card saving
-// USER INTERACTION: Handles video controls, word selection, and provides feedback messages
+// ==================== COMPONENT SUMMARY ====================
+// PURPOSE: Complete YouTube video player with transcript display, vocabulary card creation, and study time tracking
+// FUNCTIONALITY: 
+//   - Loads YouTube videos and downloads transcripts
+//   - Allows clicking Arabic words to save as vocabulary cards  
+//   - Tracks focused vs background study time
+//   - Handles background video playback when switching tabs
+// STATE MANAGEMENT: Manages all video playback, transcript data, immersion tracking, and user interactions
+// INTEGRATION: Communicates with parent component for deck management, settings, and notifications
+// USER INTERACTION: Handles video controls, word selection, timestamp navigation, and provides real-time feedback
