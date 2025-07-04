@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       segmentIndex
     } = await request.json();
     
-   // Handle transcript cleaning requests FIRST
+    // Handle transcript cleaning requests FIRST
     if (requestType === 'transcript_cleaning') {
       if (!segmentText) {
         return NextResponse.json({ error: 'Segment text is required' }, { status: 400 });
