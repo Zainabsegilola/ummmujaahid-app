@@ -81,8 +81,15 @@ export async function POST(request: NextRequest) {
       },
       source: 'fallback'
     });
+  } catch (error: any) {
+      console.error('Translation API error:', error);
+      
+      return NextResponse.json({
+        success: false,
+        error: error.message || 'Translation failed'
+      }, { status: 500 });
+    }
   }
-}
 
 // Enhanced DeepSeek Translation with Complete Arabic Analysis
 async function translateWithDeepSeek(arabicWord: string, context: string, sourceType: string, sourceInfo: any) {
@@ -390,12 +397,4 @@ Return only the corrected Arabic text with harakat:`;
 
   return cleanedText;
 }
-  } catch (error: any) {
-      console.error('Translation API error:', error);
-      
-      return NextResponse.json({
-        success: false,
-        error: error.message || 'Translation failed'
-      }, { status: 500 });
-    }
-  }
+  
