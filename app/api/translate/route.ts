@@ -352,20 +352,17 @@ async function cleanTranscriptWithDeepSeek(segmentText: string) {
     throw new Error('DeepSeek API key not found');
   }
 
-  const prompt = `You are correcting an Arabic transcript from speech-to-text. The transcript is mostly correct but may have some obvious errors.
+  const prompt = `Add complete harakat (diacritics) to this Arabic text. Fix these specific issues:
 
-ONLY fix words that are clearly wrong:
-- Obvious spelling mistakes
-- Incomplete words (like "الل" instead of "الله")  
-- False starts (like "في... في الإسلام" → "في الإسلام")
-- Clear nonsense words
+1. Add hamza (ء) on alif when missing (أ، إ، آ)
+2. Add dots on ta marbuta when missing (ة)
+3. Add all diacritical marks: فتحة، ضمة، كسرة، سكون، شدة، تنوين
 
-DO NOT change:
-- Correct words even if they seem unusual
-- Natural speech patterns  
-- Word order or sentence structure
+Do not change word meanings or spellings - only add the missing diacritics and fix hamza/ta marbuta.
 
-DO add harakat (diacritics) to ALL Arabic words.
+Text: ${segmentText}
+
+Return only the corrected Arabic text:`;
 
 Original: "${segmentText}"
 
