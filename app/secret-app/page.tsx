@@ -3483,7 +3483,10 @@ function MainApp({ user }: { user: any }) {
                   requestType: 'transcript_cleaning',
                   segmentText: segment.text,
                   videoId: videoId,
-                  segmentIndex: index
+                  segmentIndex: index,
+                  videoTitle: currentVideoTitle || 'Islamic educational content',
+                  previousSegment: index > 0 ? data.transcript[index - 1]?.text : null,
+                  nextSegment: index < data.transcript.length - 1 ? data.transcript[index + 1]?.text : null
                 })
               });
               
