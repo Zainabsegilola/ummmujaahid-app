@@ -81,6 +81,8 @@ export async function POST(request: NextRequest) {
       },
       source: 'fallback'
     });
+  }
+}
 
 // Enhanced DeepSeek Translation with Complete Arabic Analysis
 async function translateWithDeepSeek(arabicWord: string, context: string, sourceType: string, sourceInfo: any) {
