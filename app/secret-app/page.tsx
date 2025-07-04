@@ -5664,7 +5664,6 @@ function MainApp({ user }: { user: any }) {
         case 'watch':
           return (
             <VideoPlayer
-              <VideoPlayer
               user={user}
               currentDeck={currentDeck}
               decks={decks}
