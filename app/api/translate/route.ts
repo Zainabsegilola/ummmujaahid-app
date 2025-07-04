@@ -20,67 +20,67 @@ export async function POST(request: NextRequest) {
     } = await request.json();
     
    // Handle transcript cleaning requests FIRST
-if (requestType === 'transcript_cleaning') {
-  if (!segmentText) {
-    return NextResponse.json({ error: 'Segment text is required' }, { status: 400 });
-  }
-  
-  try {
-    const cleanedText = await cleanTranscriptWithDeepSeek(segmentText);
+    if (requestType === 'transcript_cleaning') {
+      if (!segmentText) {
+        return NextResponse.json({ error: 'Segment text is required' }, { status: 400 });
+      }
+      
+      try {
+        const cleanedText = await cleanTranscriptWithDeepSeek(segmentText);
+        return NextResponse.json({
+          success: true,
+          cleanedText: cleanedText,
+          originalText: segmentText
+        });
+      } catch (error: any) {
+        return NextResponse.json({
+          success: true,
+          cleanedText: segmentText, // Return original if cleaning fails
+          originalText: segmentText,
+          error: error.message
+        });
+      }
+    }
+    
+    // Handle word translation requests (your existing logic)
+    if (!arabicWord) {
+      return NextResponse.json({ error: 'Arabic word is required' }, { status: 400 });
+    }
+    
+    console.log('🔄 Translating word:', arabicWord, 'Source type:', sourceType);
+    
+    // Try DeepSeek with enhanced analysis
+    try {
+      const deepSeekResult = await translateWithDeepSeek(arabicWord, context, sourceType, sourceInfo);
+      if (deepSeekResult) {
+        console.log('✅ DeepSeek translation successful:', deepSeekResult);
+        return NextResponse.json({
+          success: true,
+          translation: deepSeekResult,
+          source: 'deepseek'
+        });
+      }
+    } catch (deepSeekError) {
+      console.warn('⚠️ DeepSeek failed:', deepSeekError);
+    }
+    
+    // Last resort - return partial data with error info
     return NextResponse.json({
       success: true,
-      cleanedText: cleanedText,
-      originalText: segmentText
+      translation: {
+        meaningInContext: "Add meaning manually",
+        root: "Unknown root",
+        rootConnection: "Manual analysis needed",
+        morphology: "Pattern analysis needed", 
+        grammarExplanation: "Grammar analysis needed",
+        grammarSample: context || arabicWord,
+        sampleSentence1: arabicWord,
+        sampleTranslation1: "Manual translation needed",
+        sampleSentence2: arabicWord, 
+        sampleTranslation2: "Manual translation needed"
+      },
+      source: 'fallback'
     });
-  } catch (error: any) {
-    return NextResponse.json({
-      success: true,
-      cleanedText: segmentText, // Return original if cleaning fails
-      originalText: segmentText,
-      error: error.message
-    });
-  }
-}
-
-// Handle word translation requests (your existing logic)
-if (!arabicWord) {
-  return NextResponse.json({ error: 'Arabic word is required' }, { status: 400 });
-}
-
-console.log('🔄 Translating word:', arabicWord, 'Source type:', sourceType);
-
-// Try DeepSeek with enhanced analysis
-try {
-  const deepSeekResult = await translateWithDeepSeek(arabicWord, context, sourceType, sourceInfo);
-  if (deepSeekResult) {
-    console.log('✅ DeepSeek translation successful:', deepSeekResult);
-    return NextResponse.json({
-      success: true,
-      translation: deepSeekResult,
-      source: 'deepseek'
-    });
-  }
-} catch (deepSeekError) {
-  console.warn('⚠️ DeepSeek failed:', deepSeekError);
-}
-
-// Last resort - return partial data with error info
-return NextResponse.json({
-  success: true,
-  translation: {
-    meaningInContext: "Add meaning manually",
-    root: "Unknown root",
-    rootConnection: "Manual analysis needed",
-    morphology: "Pattern analysis needed", 
-    grammarExplanation: "Grammar analysis needed",
-    grammarSample: context || arabicWord,
-    sampleSentence1: arabicWord,
-    sampleTranslation1: "Manual translation needed",
-    sampleSentence2: arabicWord, 
-    sampleTranslation2: "Manual translation needed"
-  },
-  source: 'fallback'
-});
 
 // Enhanced DeepSeek Translation with Complete Arabic Analysis
 async function translateWithDeepSeek(arabicWord: string, context: string, sourceType: string, sourceInfo: any) {
