@@ -360,10 +360,6 @@ async function cleanTranscriptWithDeepSeek(segmentText: string) {
 
 Do not change word meanings or spellings - only add the missing diacritics and fix hamza/ta marbuta.
 
-Text: ${segmentText}
-
-Return only the corrected Arabic text:`;
-
 Original: "${segmentText}"
 
 Return only the corrected Arabic text with harakat, do not return any explanations, just the edited transcript!:`;
