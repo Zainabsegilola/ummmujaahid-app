@@ -3513,7 +3513,7 @@ function MainApp({ user }: { user: any }) {
         // Save cleaned transcript to database
         try {
           await fetch('/api/transcript/save-cleaned', {
-            method: 'POST',
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               videoId: videoId,
