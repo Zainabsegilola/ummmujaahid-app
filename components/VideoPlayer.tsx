@@ -95,6 +95,8 @@ export function VideoPlayer({
   onCreateOrGetDeck,
   onLoadUserDecks
 }: VideoPlayerProps) {
+   console.log('🎬 VideoPlayer component is rendering!'); // ADD THIS
+   console.log('🎬 User exists:', !!user); // ADD THIS
   
   // VIDEO PLAYER STATE - Remember information about the video and player
   const [player, setPlayer] = useState<any>(null); // The YouTube player object that controls video playback
