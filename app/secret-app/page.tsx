@@ -145,6 +145,7 @@ function MainApp({ user }: { user: any }) {
   // Harakat states
   const [harakatCache, setHarakatCache] = useState<Map<string, string>>(new Map());
   const [isProcessingHarakat, setIsProcessingHarakat] = useState(false);
+  const [transcriptCleaningCache, setTranscriptCleaningCache] = useState<Map<string, string>>(new Map());
   
   // Quran states
   const [surahs, setSurahs] = useState<any[]>([]);
@@ -3451,12 +3452,65 @@ function MainApp({ user }: { user: any }) {
     setTranscriptError('');
     
     try {
+      // Step 1: Get raw transcript
+      setCardMessage('🔄 Loading transcript...');
       const response = await fetch(`/api/transcript?videoId=${videoId}`);
       const data = await response.json();
       
       if (data.transcript && data.transcript.length > 0) {
-        setTranscript(data.transcript);
+        setCardMessage('🔄 Cleaning and adding harakat to transcript...');
+        
+        // Step 2: Clean each segment
+        const cleanedTranscript = await Promise.all(
+          data.transcript.map(async (segment, index) => {
+            try {
+              // Check cache first
+              const cacheKey = `${videoId}-${index}`;
+              if (transcriptCleaningCache.has(cacheKey)) {
+                console.log(`✅ Cache hit for segment ${index}`);
+                return {
+                  ...segment,
+                  text: transcriptCleaningCache.get(cacheKey)
+                };
+              }
+              
+              // Clean with DeepSeek
+              console.log(`🧹 Cleaning segment ${index}: "${segment.text}"`);
+              const cleanResponse = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  requestType: 'transcript_cleaning',
+                  segmentText: segment.text,
+                  videoId: videoId,
+                  segmentIndex: index
+                })
+              });
+              
+              const cleanData = await cleanResponse.json();
+              
+              if (cleanData.success && cleanData.cleanedText) {
+                // Cache the cleaned text
+                setTranscriptCleaningCache(prev => new Map(prev.set(cacheKey, cleanData.cleanedText)));
+                
+                return {
+                  ...segment,
+                  text: cleanData.cleanedText
+                };
+              } else {
+                console.warn(`⚠️ Cleaning failed for segment ${index}, using original`);
+                return segment; // Use original if cleaning fails
+              }
+            } catch (error) {
+              console.error(`❌ Error cleaning segment ${index}:`, error);
+              return segment; // Use original if error
+            }
+          })
+        );
+        
+        setTranscript(cleanedTranscript);
         setTranscriptError('');
+        setCardMessage('✅ Transcript cleaned and loaded!');
         
         // CREATE DECK HERE since video player is blocked
         if (user?.id && currentVideoId) {
@@ -3477,6 +3531,7 @@ function MainApp({ user }: { user: any }) {
       setTimeout(() => setCardMessage(''), 5000);
     } finally {
       setIsLoadingTranscript(false);
+      setTimeout(() => setCardMessage(''), 3000);
     }
   };
 
@@ -3924,27 +3979,6 @@ function MainApp({ user }: { user: any }) {
                 🗑️ Clear
               </button>
             )}
-          
-          {transcript.length > 0 && (
-            <button
-              onClick={processHarakatForTranscript}
-              disabled={isProcessingHarakat}
-              style={{
-                backgroundColor: isProcessingHarakat ? '#9ca3af' : '#059669',
-                color: 'white',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: 'none',
-                fontWeight: '600',
-                cursor: isProcessingHarakat ? 'not-allowed' : 'pointer',
-                fontSize: '12px',
-                whiteSpace: 'nowrap'
-              }}
-              title="Add harakat (diacritics) to Arabic text"
-            >
-              {isProcessingHarakat ? '⏳' : 'ً◌'} Harakat
-            </button>
-          )}
           <label style={{
             display: 'flex',
             alignItems: 'center',
