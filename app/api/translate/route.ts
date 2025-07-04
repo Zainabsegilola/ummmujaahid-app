@@ -390,3 +390,12 @@ Return only the corrected Arabic text with harakat:`;
 
   return cleanedText;
 }
+  } catch (error: any) {
+      console.error('Translation API error:', error);
+      
+      return NextResponse.json({
+        success: false,
+        error: error.message || 'Translation failed'
+      }, { status: 500 });
+    }
+  }
