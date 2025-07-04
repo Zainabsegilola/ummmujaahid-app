@@ -19,19 +19,23 @@ export async function GET(request: NextRequest) {
     
     const { data: cachedTranscript, error: cacheError } = await supabase
       .from('transcripts')
-      .select('transcript, lang, created_at')
+      .select('transcript, lang, transcript_cleaned, created_at')
       .eq('video_id', videoId)
       .single();
 
     if (cachedTranscript && !cacheError) {
-      console.log('✅ Found cached transcript!', {
-        lang: cachedTranscript.lang,
-        created: cachedTranscript.created_at,
-        segmentCount: cachedTranscript.transcript.length
-      });
+      console.log('✅ Found cached transcript!');
       
-      // Return cached transcript
-      return NextResponse.json({ transcript: cachedTranscript.transcript });
+      // Return cleaned version if available, otherwise return original
+      const transcriptToReturn = cachedTranscript.transcript_cleaned || cachedTranscript.transcript;
+      const isCleanedVersion = !!cachedTranscript.transcript_cleaned;
+      
+      console.log(`📄 Returning ${isCleanedVersion ? 'cleaned' : 'original'} transcript`);
+      
+      return NextResponse.json({ 
+        transcript: transcriptToReturn,
+        isCleanedVersion: isCleanedVersion
+      });
     }
 
     console.log('❌ No cached transcript, fetching from Supadata...');
@@ -66,6 +70,7 @@ export async function GET(request: NextRequest) {
           .insert({
             video_id: videoId,
             transcript: supadataResponse.transcript,
+            transcript_cleaned: null, // Will be filled when cleaned
             lang: supadataResponse.lang,
             created_at: new Date().toISOString()
           });
