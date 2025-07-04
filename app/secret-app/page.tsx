@@ -217,21 +217,11 @@ function MainApp({ user }: { user: any }) {
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
       setIsTabVisible(isVisible);
-      
-      // Update immersion mode based on visibility
-      if (immersionSession.isActive && isPlaying) {
-        const newMode = isVisible ? 'focused' : 'freeflow';
-        setImmersionSession(prev => ({
-          ...prev,
-          currentMode: newMode
-        }));
-        console.log(`🔄 Switched to ${newMode} mode (tab ${isVisible ? 'visible' : 'hidden'})`);
-      }
     };
   
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [immersionSession.isActive, isPlaying]);
+  }, [immersionSession.isActive]);
 
   
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
