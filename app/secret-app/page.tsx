@@ -2606,12 +2606,6 @@ function MainApp({ user }: { user: any }) {
       console.error('Error loading Quran settings:', error);
     }
   };
-  const getExpandedContext = (word: any, transcriptWords: any[], wordIndex: number) => {
-    const startIndex = Math.max(0, wordIndex - 10);
-    const endIndex = Math.min(transcriptWords.length - 1, wordIndex + 10);
-    const contextWords = transcriptWords.slice(startIndex, endIndex + 1);
-    return contextWords.map(w => w.text).join(' ');
-  };
  
   const createMCDContext = (context, targetWord) => {
     if (!context || !targetWord) return context;
@@ -2676,50 +2670,6 @@ function MainApp({ user }: { user: any }) {
     
     return { totalUniqueWords, progressPercentage, totalNew, totalDue, totalLearning };
   };
-
-  const getCurrentSegment = () => {
-    // Adjust for transcript timing offset - subtract time to sync better
-    const adjustedTime = currentTime + 1.0; // Try different values: 0.3, 0.5, 0.7
-    // Try each of these one at a time:
-  // adjustedTime = currentTime - 1.0;  // If text is ahead of audio
-  // adjustedTime = currentTime - 0.5;  // Moderate adjustment
-  // adjustedTime = currentTime + 0.5;  // If text is behind audio
-  // adjustedTime = currentTime + 1.0;  // If text is way behind
-    
-    for (let i = 0; i < transcript.length; i++) {
-        const segment = transcript[i];
-        const segmentStart = segment.start;
-        const segmentEnd = segment.start + (segment.duration || 2);
-        if (adjustedTime >= segmentStart && adjustedTime < segmentEnd) {
-        return { segment, index: i };
-        }
-    }
-    
-    // Fallback logic
-    for (let i = 0; i < transcript.length; i++) {
-        if (transcript[i].start > adjustedTime) {
-        return i > 0 ? { segment: transcript[i-1], index: i-1 } : null;
-        }
-    }
-    return null;
-    };
-
-  // Get next segment
-  const getNextSegment = () => {
-    const currentData = getCurrentSegment();
-    if (currentData && currentData.index + 1 < transcript.length) {
-      return { segment: transcript[currentData.index + 1], index: currentData.index + 1 };
-    }
-    return null;
-  };
-
-  // Get processed words
-  const transcriptWords = transcript.length > 0 && transcript.length < 1000 ? 
-    processTranscriptWords(transcript) : [];
-
-  // Fixed Harakat functions with better error handling
-
-
   
   const loadCompleteUserData = async () => {
     try {
@@ -3045,130 +2995,8 @@ function MainApp({ user }: { user: any }) {
     // Use the segment start time, not the calculated word timestamp
     seekTo(word.segmentStart);
     };
-  const handleWordDoubleClick = async (word) => {
-    if (!user?.id) {
-      setCardMessage('❌ Not logged in');
-      setTimeout(() => setCardMessage(''), 3000);
-      return;
-    }
-    if (!currentDeck?.id) {
-      setCardMessage('❌ No deck loaded');
-      setTimeout(() => setCardMessage(''), 3000);
-      return;
-    }
   
-    const cleanWord = cleanArabicWord(word.text);
-    if (!cleanWord) {
-      setCardMessage('❌ No Arabic text in this word');
-      setTimeout(() => setCardMessage(''), 3000);
-      return;
-    }
-  
-    // Enhanced context with video title
-    const getEnhancedYouTubeContext = () => {
-      if (transcriptWords.length > 0) {
-        const wordIndex = transcriptWords.findIndex(w =>
-          w.segmentIndex === word.segmentIndex &&
-          cleanArabicWord(w.text) === cleanWord
-        );
-        
-        if (wordIndex !== -1) {
-          const startIndex = Math.max(0, wordIndex - 10);
-          const endIndex = Math.min(transcriptWords.length - 1, wordIndex + 10);
-          const contextWords = transcriptWords.slice(startIndex, endIndex + 1);
-          const contextText = contextWords.map(w => w.text).join(' ');
-          
-          // Enhanced format with video title
-          return `Video: ${currentVideoTitle || 'Educational Content'} - Context: ${contextText}`;
-        }
-      }
-      return `Video: ${currentVideoTitle || 'Educational Content'} - Context: ${word.segmentText || cleanWord}`;
-    };
-  
-    const enhancedContext = getEnhancedYouTubeContext();
-    
-    setIsAddingCard(true);
-    setCardMessage('🔄 Checking cache for enhanced analysis...');
-  
-    try {
-      // STEP 1: Check if YouTube translation is cached
-      const cachedTranslation = await getYouTubeTranslationCache(
-        cleanWord,
-        currentVideoId,
-        word.segmentStart  // Use segment start time as cache key
-      );
-  
-      let translationData = null;
-  
-      if (cachedTranslation) {
-        // CACHE HIT: Use existing translation
-        setCardMessage('✅ Found cached translation, creating your card...');
-        translationData = cachedTranslation;
-        console.log('🎯 Using cached YouTube translation:', translationData);
-      } else {
-        // CACHE MISS: Call API and cache the result
-        setCardMessage('🔄 Creating new enhanced Arabic analysis...');
-  
-        // ENHANCED API CALL
-        translationData = await fetchEnhancedTranslation(
-          cleanWord, 
-          enhancedContext, 
-          'youtube', 
-          {
-            videoTitle: currentVideoTitle,
-            timestamp: word.timestamp
-          }
-        );
-        
-        if (translationData) {
-          setCardMessage('🔄 Enhanced analysis received, caching for future users...');
-          console.log('✨ New enhanced YouTube translation:', translationData);
-          
-          // STEP 2: Save to cache for future users
-          await saveYouTubeTranslationCache(
-            cleanWord,
-            currentVideoId,
-            word.segmentStart,  // Use segment start time
-            translationData,
-            currentVideoTitle
-          );
-          
-          setCardMessage('🔄 Translation cached, saving your card...');
-        } else {
-          setCardMessage('🔄 Translation failed, saving card without enhanced data...');
-        }
-      }
-  
-      // STEP 3: Save card with translation data (cached or new)
-      const result = await addCardToDeck(
-        currentDeck.id,
-        cleanWord,
-        enhancedContext,
-        word.timestamp,
-        user.id,
-        translationData
-      );
-  
-      if (result.error) {
-        if (result.error.message?.includes('duplicate key')) {
-          setCardMessage(`ℹ️ "${cleanWord}" already in your deck`);
-        } else {
-          setCardMessage(`❌ Error: ${result.error.message}`);
-        }
-      } else {
-        const message = translationData 
-          ? `✅ Added "${cleanWord}" with enhanced analysis!`
-          : `✅ Added "${cleanWord}" (analysis will be added later)`;
-        setCardMessage(message);
-        await loadUserDecks();
-      }
-    } catch (error) {
-      setCardMessage(`❌ Failed: ${error.message}`);
-    } finally {
-      setIsAddingCard(false);
-      setTimeout(() => setCardMessage(''), 4000);
-    }
-  };
+
 
   
   const saveCardDetails = async () => {
