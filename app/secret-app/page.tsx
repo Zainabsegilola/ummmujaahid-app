@@ -3510,6 +3510,21 @@ function MainApp({ user }: { user: any }) {
         
         setTranscript(cleanedTranscript);
         setTranscriptError('');
+        // Save cleaned transcript to database
+        try {
+          await fetch('/api/transcript/save-cleaned', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              videoId: videoId,
+              cleanedTranscript: cleanedTranscript
+            })
+          });
+          console.log('✅ Cleaned transcript saved to database');
+        } catch (error) {
+          console.warn('⚠️ Failed to save cleaned transcript:', error);
+        }
+        
         setCardMessage('✅ Transcript cleaned and loaded!');
         
         // CREATE DECK HERE since video player is blocked
