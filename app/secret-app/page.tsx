@@ -5658,8 +5658,10 @@ function MainApp({ user }: { user: any }) {
   // Replace your existing renderTabContent function with this:
 
   const renderTabContent = () => {
+    console.log('🔍 renderTabContent called, activeTab:', activeTab);
     switch (activeTab) {
         case 'watch':
+          console.log('🎬 Rendering watch tab'); 
           return (
             <VideoPlayer
               user={user}
@@ -5690,6 +5692,7 @@ function MainApp({ user }: { user: any }) {
             />
           );
       case 'settings':
+        console.log('⚙️ Rendering settings tab'); 
         return renderSettingsPage();
       case 'my-cards':
         return renderMyCardsTab();
