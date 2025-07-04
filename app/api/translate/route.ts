@@ -346,7 +346,6 @@ function extractMeaningFromText(text: string): string {
   return "Add meaning manually";
 }
 async function cleanTranscriptWithDeepSeek(segmentText: string) {
-  async function cleanTranscriptWithDeepSeek(segmentText: string) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   
   if (!apiKey) {
