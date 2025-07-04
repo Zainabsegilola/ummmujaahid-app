@@ -7,10 +7,42 @@ console.log('🔍 Environment check:', {
 
 export async function POST(request: NextRequest) {
   try {
-    const { arabicWord, context, sourceType = 'general', sourceInfo = {} } = await request.json();
+    const { 
+      arabicWord, 
+      context, 
+      sourceType = 'general', 
+      sourceInfo = {},
+      // NEW: Add these fields
+      requestType = 'translation',
+      segmentText,
+      videoId,
+      segmentIndex
+    } = await request.json();
     
     if (!arabicWord) {
       return NextResponse.json({ error: 'Arabic word is required' }, { status: 400 });
+    }
+    // Handle transcript cleaning requests
+    if (requestType === 'transcript_cleaning') {
+      if (!segmentText) {
+        return NextResponse.json({ error: 'Segment text is required' }, { status: 400 });
+      }
+      
+      try {
+        const cleanedText = await cleanTranscriptWithDeepSeek(segmentText);
+        return NextResponse.json({
+          success: true,
+          cleanedText: cleanedText,
+          originalText: segmentText
+        });
+      } catch (error: any) {
+        return NextResponse.json({
+          success: true,
+          cleanedText: segmentText, // Return original if cleaning fails
+          originalText: segmentText,
+          error: error.message
+        });
+      }
     }
 
     console.log('🔄 Translating word:', arabicWord, 'Source type:', sourceType);
@@ -310,4 +342,57 @@ function extractMeaningFromText(text: string): string {
   }
   
   return "Add meaning manually";
+}
+async function cleanTranscriptWithDeepSeek(segmentText: string) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('DeepSeek API key not found');
+  }
+
+  const prompt = `You are correcting an Arabic transcript from speech-to-text. The transcript is mostly correct but may have some obvious errors.
+
+ONLY fix words that are clearly wrong:
+- Obvious spelling mistakes
+- Incomplete words (like "الل" instead of "الله")  
+- False starts (like "في... في الإسلام" → "في الإسلام")
+- Clear nonsense words
+
+DO NOT change:
+- Correct words even if they seem unusual
+- Natural speech patterns  
+- Word order or sentence structure
+
+DO add harakat (diacritics) to ALL Arabic words.
+
+Original: "${segmentText}"
+
+Return only the corrected Arabic text with harakat:`;
+
+  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 300
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`DeepSeek API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const cleanedText = data.choices?.[0]?.message?.content?.trim();
+  
+  if (!cleanedText) {
+    throw new Error('No cleaned text returned');
+  }
+
+  return cleanedText;
 }
