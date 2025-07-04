@@ -16,7 +16,10 @@ export async function POST(request: NextRequest) {
       requestType = 'translation',
       segmentText,
       videoId,
-      segmentIndex
+      segmentIndex,
+      videoTitle,
+      previousSegment,
+      nextSegment
     } = await request.json();
     
     // Handle transcript cleaning requests FIRST
@@ -351,24 +354,23 @@ async function cleanTranscriptWithDeepSeek(segmentText: string) {
     throw new Error('DeepSeek API key not found');
   }
 
-  const prompt = `You are correcting an Arabic transcript from speech-to-text. The transcript is mostly correct but may have some obvious errors.
+  const prompt = `Clean this Arabic speech-to-text transcript segment. You must return ONLY the corrected Arabic text with harakat, nothing else.
+Rules:
+- Fix obvious spelling mistakes
+- Remove incomplete words (like "الل" → "الله") 
+- Remove false starts (like "في... في الإسلام" → "في الإسلام")
+- Add harakat to ALL words
+- Use video context to infer correct meaning
+- DO NOT add explanations, notes, or anything except the cleaned Arabic text
 
-ONLY fix words that are clearly wrong:
-- Obvious spelling mistakes
-- Incomplete words (like "الل" instead of "الله")  
-- False starts (like "في... في الإسلام" → "في الإسلام")
-- Clear nonsense words
+Video: "${videoTitle || 'Islamic lectures in arabic'}"
+Previous segment: "${previousSegment || 'None'}"
+Current segment: "${segmentText}"
+Next segment: "${nextSegment || 'None'}"
 
-DO NOT change:
-- Correct words even if they seem unusual
-- Natural speech patterns  
-- Word order or sentence structure
+Use the video title and surrounding segments to understand context and fix unclear words.
 
-DO add harakat (diacritics) to ALL Arabic words.
-
-Original: "${segmentText}"
-
-Return only the corrected Arabic text with harakat:`;
+Return ONLY the cleaned Arabic text with harakat:`;
 
   const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
