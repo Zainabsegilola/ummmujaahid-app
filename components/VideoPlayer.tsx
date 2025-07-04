@@ -25,7 +25,7 @@ interface VideoPlayerProps {
   onCreateOrGetDeck: (title: string, videoId: string) => void; // Function to create flashcard deck for this video
   onLoadUserDecks: () => void; // Function to refresh the list of user's decks
   onPlayerStateChange: (isPlaying: boolean, videoId: string, videoTitle: string) => void;
-  onPlayerReady: (player: any) => void;
+  onVideoReady?: (videoId: string, videoTitle: string) => void;
 }
 
 // Helper function to remove Arabic diacritics (vowel marks) from words
@@ -350,7 +350,10 @@ export function VideoPlayer({
       const isNowPlaying = event.data === window.YT.PlayerState.PLAYING; // Check if video started playing
       setIsPlaying(isNowPlaying); // Update playing state
 
-      onPlayerStateChange(isNowPlaying, currentVideoId, currentVideoTitle);
+      // Notify parent about state change for immersion tracking
+      if (onPlayerStateChange) {
+        onPlayerStateChange(isNowPlaying, currentVideoId, currentVideoTitle);
+      }
   
       if (isNowPlaying) { // If video started playing
         if (!immersionSession.isActive) { // If not already tracking study time
