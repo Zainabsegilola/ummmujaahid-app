@@ -6429,9 +6429,10 @@ function MainApp({ user }: { user: any }) {
               <button
                 key={tab.id}
                 onClick={() => {
-                  // Save video state before switching tabs
-                  if (activeTab === 'watch') {
-                    saveCurrentVideoState();
+                  // Only try to save if we have video info
+                  if (activeTab === 'watch' && currentVideoInfo) {
+                    // VideoPlayer will handle its own state saving
+                    console.log('Switching away from video tab');
                   }
                   setActiveTab(tab.id);
                 }}
