@@ -369,7 +369,7 @@ DO add harakat (diacritics) to ALL Arabic words.
 
 Original: "${segmentText}"
 
-Return only the corrected Arabic text with harakat:`;
+Return only the corrected Arabic text with harakat, do not return any explanations, just the edited transcript!:`;
 
   const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
     method: 'POST',
