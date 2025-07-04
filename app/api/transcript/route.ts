@@ -157,3 +157,25 @@ async function callSupadataAPI(videoId: string, apiKey: string, lang: string) {
     return { success: false, error: error.message };
   }
 }
+export async function PUT(request: NextRequest) {
+  try {
+    const { videoId, cleanedTranscript } = await request.json();
+    
+    if (!videoId || !cleanedTranscript) {
+      return NextResponse.json({ error: 'Missing data' }, { status: 400 });
+    }
+    
+    const { error } = await supabase
+      .from('transcripts')
+      .update({ transcript_cleaned: cleanedTranscript })
+      .eq('video_id', videoId);
+    
+    if (error) {
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
