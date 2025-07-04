@@ -6460,29 +6460,11 @@ function MainApp({ user }: { user: any }) {
       </div>
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '24px' }}>
-        {/* Persistent YouTube Player Container */}
-        {currentVideoId && (
-          <div style={{
-            position: activeTab === 'watch' ? 'relative' : 'fixed',
-            top: activeTab === 'watch' ? '0' : '-9999px',
-            left: activeTab === 'watch' ? '0' : '-9999px',
-            width: activeTab === 'watch' ? '100%' : '1px',
-            height: activeTab === 'watch' ? 'auto' : '1px',
-            zIndex: activeTab === 'watch' ? 1 : -1,
-            overflow: 'hidden'
-          }}>
-            {renderWatchTabContent()}
-          </div>
-        )}
         
         {/* Regular Tab Content */}
         <div style={{ display: activeTab === 'watch' ? 'none' : 'block' }}>
           {renderTabContent()}
         </div>
-        
-        {/* Show watch tab content when active */}
-        {activeTab === 'watch' && !currentVideoId && renderWatchTabContent()}
-        
         {renderCardModal()}
         {renderBackgroundVideoControls()}
         {renderBackgroundStatusIndicator()}
