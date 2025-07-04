@@ -17,9 +17,7 @@ export async function POST(request: NextRequest) {
       segmentText,
       videoId,
       segmentIndex,
-      videoTitle,
-      previousSegment,
-      nextSegment
+      
     } = await request.json();
     
     // Handle transcript cleaning requests FIRST
@@ -348,7 +346,54 @@ function extractMeaningFromText(text: string): string {
   return "Add meaning manually";
 }
 async function cleanTranscriptWithDeepSeek(segmentText: string) {
-  // Hardcoded test - just add "TEST" to see if it works
-  return segmentText + " TEST";
-}
+  async function cleanTranscriptWithDeepSeek(segmentText: string) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   
+  if (!apiKey) {
+    throw new Error('DeepSeek API key not found');
+  }
+
+  const prompt = `Clean this Arabic speech-to-text transcript segment. You MUST return ONLY the corrected Arabic text with harakat, nothing else.
+
+Rules:
+- Fix obvious spelling mistakes
+- Remove incomplete words (like "الل" → "الله") 
+- Remove false starts (like "في... في الإسلام" → "في الإسلام")
+- Add harakat to ALL words
+- Use video context to infer correct meaning
+- DO NOT add explanations, notes, or anything except the cleaned Arabic text
+-You MUST return text that looks different from the original
+
+Video: "${videoTitle || 'Islamic lectures in arabic'}"
+
+Use the video title and transcripts to accurately understand context of discussion and fix unclear words.
+
+Return ONLY the cleaned Arabic text with harakat(no explanations,just the fixed orginal text):`;
+
+  const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 300
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`DeepSeek API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const cleanedText = data.choices?.[0]?.message?.content?.trim();
+  
+  if (!cleanedText) {
+    throw new Error('No cleaned text returned');
+  }
+
+  return cleanedText;
+}
