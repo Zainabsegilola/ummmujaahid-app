@@ -354,7 +354,8 @@ async function cleanTranscriptWithDeepSeek(segmentText: string) {
     throw new Error('DeepSeek API key not found');
   }
 
-  const prompt = `Clean this Arabic speech-to-text transcript segment. You must return ONLY the corrected Arabic text with harakat, nothing else.
+  const prompt = `Clean this Arabic speech-to-text transcript segment. You must return ONLY the corrected Arabic text with harakat, nothing else.You MUST add full harakat (diacritics) to this Arabic text. Even if the text looks correct, you MUST add harakat to every single Arabic word.
+
 Rules:
 - Fix obvious spelling mistakes
 - Remove incomplete words (like "الل" → "الله") 
@@ -362,6 +363,7 @@ Rules:
 - Add harakat to ALL words
 - Use video context to infer correct meaning
 - DO NOT add explanations, notes, or anything except the cleaned Arabic text
+-You MUST return text that looks different from the original
 
 Video: "${videoTitle || 'Islamic lectures in arabic'}"
 Previous segment: "${previousSegment || 'None'}"
