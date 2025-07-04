@@ -101,6 +101,8 @@ function MainApp({ user }: { user: any }) {
   const [studyCardAudio, setStudyCardAudio] = useState(null);
   const [isStudyAudioLoading, setIsStudyAudioLoading] = useState(false);
   const [studyAudioStatus, setStudyAudioStatus] = useState('');
+  //immersion states
+  const [currentVideoInfo, setCurrentVideoInfo] = useState<{id: string, title: string} | null>(null);
 
   // Modal states
   const [showCardModal, setShowCardModal] = useState(false);
@@ -680,8 +682,8 @@ function MainApp({ user }: { user: any }) {
   const startImmersionSession = () => {
     console.log('🎯 Starting new immersion session');
     
-    if (!user?.id || !currentVideoId) {
-      console.log('❌ Cannot start session - missing user or video');
+    if (!user?.id) {
+      console.log('❌ Cannot start session - missing user');
       return;
     }
   
@@ -5662,6 +5664,7 @@ function MainApp({ user }: { user: any }) {
         case 'watch':
           return (
             <VideoPlayer
+              <VideoPlayer
               user={user}
               currentDeck={currentDeck}
               decks={decks}
@@ -5674,6 +5677,19 @@ function MainApp({ user }: { user: any }) {
               stopImmersionSession={stopImmersionSession}
               onCreateOrGetDeck={handleCreateOrGetDeck}
               onLoadUserDecks={loadUserDecks}
+              onPlayerStateChange={(isPlaying, videoId, videoTitle) => {
+                // Update current video info for immersion tracking
+                setCurrentVideoInfo({ id: videoId, title: videoTitle });
+                
+                // Handle immersion based on video state
+                if (isPlaying && !immersionSession.isActive) {
+                  startImmersionSession();
+                }
+                // Don't stop on pause - let user manually stop or when video ends
+              }}
+              onVideoReady={(videoId, videoTitle) => {
+                setCurrentVideoInfo({ id: videoId, title: videoTitle });
+              }}
             />
           );
       case 'settings':
