@@ -5659,8 +5659,6 @@ function MainApp({ user }: { user: any }) {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'watch':
-        // Watch tab content is now handled by persistent container
         case 'watch':
           return (
             <VideoPlayer
