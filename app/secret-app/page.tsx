@@ -6466,8 +6466,6 @@ function MainApp({ user }: { user: any }) {
           {renderTabContent()}
         </div>
         {renderCardModal()}
-        {renderBackgroundVideoControls()}
-        {renderBackgroundStatusIndicator()}
         {renderImmersionTimerWidget()}
         {renderProfileModal()} 
         
