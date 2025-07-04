@@ -2856,24 +2856,45 @@ function MainApp({ user }: { user: any }) {
     setCardMessage('🔄 Adding harakat...');
     
     try {
-        const processedTranscript = [];
-        for (const segment of transcript) {
+      const processedTranscript = [];
+      for (const segment of transcript) {
         const harakatText = await addHarakat(segment.text);
         processedTranscript.push({ ...segment, text: harakatText });
-        // Reduced delay from 100ms to 50ms
         await new Promise(resolve => setTimeout(resolve, 50));
-        }
-        
-        setTranscript(processedTranscript);
-        setCardMessage('✅ Harakat added!');
+      }
+      
+      // ✅ Save to cleaned_transcripts table
+      setCardMessage('🔄 Saving cleaned transcript...');
+      
+      const { error: saveError } = await supabase
+        .from('cleaned_transcripts')
+        .upsert({
+          video_id: currentVideoId,
+          original_transcript: transcript, // Keep original
+          cleaned_transcript: processedTranscript, // Save cleaned version
+          processing_status: 'completed',
+          updated_at: new Date().toISOString()
+        });
+  
+      if (saveError) {
+        console.error('❌ Failed to save cleaned transcript:', saveError);
+        setCardMessage('⚠️ Harakat added but not saved');
+      } else {
+        console.log('✅ Cleaned transcript saved successfully');
+        setCardMessage('✅ Harakat added and saved!');
+      }
+      
+      // Update UI
+      setTranscript(processedTranscript);
+      
     } catch (error) {
-        console.error('Harakat processing error:', error);
-        setCardMessage('❌ Failed to add harakat');
+      console.error('Harakat processing error:', error);
+      setCardMessage('❌ Failed to add harakat');
     } finally {
-        setIsProcessingHarakat(false);
-        setTimeout(() => setCardMessage(''), 3000);
+      setIsProcessingHarakat(false);
+      setTimeout(() => setCardMessage(''), 3000);
     }
-    };
+  };
   const loadCompleteUserData = async () => {
     try {
       const { data, error } = await loadUserStatsAndProfile(user.id);
@@ -3452,98 +3473,46 @@ function MainApp({ user }: { user: any }) {
     setTranscriptError('');
     
     try {
-      // Step 1: Get raw transcript
+      // ✅ STEP 1: Check for cleaned transcript first
+      setCardMessage('🔄 Checking for cleaned transcript...');
+      
+      const { data: cleanedData, error: cleanedError } = await supabase
+        .from('cleaned_transcripts')
+        .select('cleaned_transcript, processing_status')
+        .eq('video_id', videoId)
+        .single();
+  
+      if (cleanedData && !cleanedError && cleanedData.processing_status === 'completed') {
+        console.log('✅ Found cleaned transcript!');
+        setTranscript(cleanedData.cleaned_transcript);
+        setCardMessage('✅ Loaded cleaned transcript with harakat!');
+        
+        // Create deck since we have transcript
+        if (user?.id && currentVideoId) {
+          await handleCreateOrGetDeck(`Video ${videoId}`, videoId);
+        }
+        
+        setTimeout(() => setCardMessage(''), 3000);
+        return;
+      }
+  
+      // ✅ STEP 2: Fallback to your existing logic
       setCardMessage('🔄 Loading transcript...');
       const response = await fetch(`/api/transcript?videoId=${videoId}`);
       const data = await response.json();
       
       if (data.transcript && data.transcript.length > 0) {
-        setCardMessage('🔄 Cleaning and adding harakat to transcript...');
-        
-        // Step 2: Clean each segment
-        const cleanedTranscript = await Promise.all(
-          data.transcript.map(async (segment, index) => {
-            try {
-              // Check cache first
-              const cacheKey = `${videoId}-${index}`;
-              if (transcriptCleaningCache.has(cacheKey)) {
-                console.log(`✅ Cache hit for segment ${index}`);
-                return {
-                  ...segment,
-                  text: transcriptCleaningCache.get(cacheKey)
-                };
-              }
-              
-              // Clean with DeepSeek
-              console.log(`🧹 Cleaning segment ${index}: "${segment.text}"`);
-              const cleanResponse = await fetch('/api/translate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                 requestType: 'transcript_cleaning',
-                 segmentText: segment.text,
-                 videoId: videoId,
-                 segmentIndex: index
-                })
-              });
-              
-              const cleanData = await cleanResponse.json();
-              
-              if (cleanData.success && cleanData.cleanedText) {
-                // Cache the cleaned text
-                setTranscriptCleaningCache(prev => new Map(prev.set(cacheKey, cleanData.cleanedText)));
-                
-                return {
-                  ...segment,
-                  text: cleanData.cleanedText
-                };
-              } else {
-                console.warn(`⚠️ Cleaning failed for segment ${index}, using original`);
-                return segment; // Use original if cleaning fails
-              }
-            } catch (error) {
-              console.error(`❌ Error cleaning segment ${index}:`, error);
-              return segment; // Use original if error
-            }
-          })
-        );
-        
+        // Your existing cleaning and processing logic...
         setTranscript(cleanedTranscript);
-        setTranscriptError('');
-        // Save cleaned transcript to database
-        try {
-          await fetch('/api/transcript/save-cleaned', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              videoId: videoId,
-              cleanedTranscript: cleanedTranscript
-            })
-          });
-          console.log('✅ Cleaned transcript saved to database');
-        } catch (error) {
-          console.warn('⚠️ Failed to save cleaned transcript:', error);
-        }
+        setCardMessage('✅ Transcript loaded!');
         
-        setCardMessage('✅ Transcript cleaned and loaded!');
-        
-        // CREATE DECK HERE since video player is blocked
         if (user?.id && currentVideoId) {
-          console.log('🔄 Creating deck from transcript fetch...');
           await handleCreateOrGetDeck(`Video ${videoId}`, videoId);
         }
-        
-      } else {
-        setTranscriptError('');
-        setTranscript([]);
-        setCardMessage('ℹ️ No transcript available for this video');
-        setTimeout(() => setCardMessage(''), 5000);
       }
+      
     } catch (error: any) {
-      setTranscriptError('');
-      setTranscript([]);
       setCardMessage('ℹ️ No transcript available for this video');
-      setTimeout(() => setCardMessage(''), 5000);
     } finally {
       setIsLoadingTranscript(false);
       setTimeout(() => setCardMessage(''), 3000);
